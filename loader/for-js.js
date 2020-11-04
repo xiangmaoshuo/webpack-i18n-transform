@@ -15,7 +15,7 @@ const traverseOptions = fs.readdirSync(traversePath, 'utf-8')
     return pre;
   }, {});
 
-const disableAutoI18nRegExp = /auto-i18n-disable/;
+const disableI18nRegExp = /transform-i18n-disable/;
 const excludeRegExp = /node_modules/;
 
 // 核心loader，主要是将js中的中文进行ast语法分析，找出其中的中文并替换成$t('xxx', ...)语法
@@ -23,7 +23,7 @@ module.exports = function loader(source) {
 
   const {
     exclude = excludeRegExp,
-    disableRegExp = disableAutoI18nRegExp
+    disableRegExp = disableI18nRegExp
   } = loaderUtils.getOptions(this);
 
   if (isExclude(this.resource, exclude) || disableRegExp.test(source)) {

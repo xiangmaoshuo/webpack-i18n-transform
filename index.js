@@ -1,10 +1,10 @@
 const path = require('path');
 const fs = require('fs');
 const loaderUtils = require('loader-utils');
-const PLUGIN_NAME = 'AutoI18nWebpackPlugin';
+const PLUGIN_NAME = 'TransformI18nWebpackPlugin';
 const { isExistsPath } = require('./utils');
 
-module.exports = class AutoI18nWebpackPlugin {
+module.exports = class TransformI18nWebpackPlugin {
   constructor({
     i18nPath,
     generateZhPath = false
@@ -15,7 +15,7 @@ module.exports = class AutoI18nWebpackPlugin {
 
     // 如果采用的是默认的$tPath，则excel必须存在
     if (!this.i18nPath) {
-      throw new Error('AutoI18nWebpackPlugin: i18nPath is required!');
+      throw new Error('TransformI18nWebpackPlugin: i18nPath is required!');
     }
   }
   apply(compiler) {

@@ -1,10 +1,10 @@
-# webpack-i18n
+# webpack-i18n-transform
 该插件用于自动将代码中的中文转换成$t('hash', [...]);
 
 ### 用法
 ```
   plugins: [
-    new AutoI18nWebpackPlugin({
+    new TransformI18nWebpackPlugin({
       i18nPath: 'src/i18n/index.js',
       generateZhPath: false,
     }),
@@ -35,15 +35,15 @@
 |属性|类型|默认值|说明|
 |:-|:-|:-|:-|
 |exclude|Boolean|/node_modules/|用以过滤，规则支持正则、字符串、函数，校验对象是资源的路径`resource`|
-|disableRegExp|RegExp|/auto-i18n-disable/|该配置的匹配目标为`source`，需要注意的是，如果需要在`.vue`文件中禁用autoI18n，使用方式如下：（`template`和`script`模块都需要标注）|
+|disableRegExp|RegExp|/transform-i18n-disable/|该配置的匹配目标为`source`，需要注意的是，如果需要在`.vue`文件中禁用transformI18n，使用方式如下：（`template`和`script`模块都需要标注）|
 ```
 <template>
-  <div auto-i18n-disable>
+  <div transform-i18n-disable>
     我是内容
   </div>
 </template>
 <script>
-/* auto-i18n-disable */
+/* transform-i18n-disable */
 export default {
   data() {
     return {...};
@@ -65,5 +65,5 @@ export default {
  2. 在使用上述loader时，需要注意loader的先后顺序，最好是先等babel之类的loader先处理完js，然后再进行国际化替换;
 
 ### 其他
-如果你的项目是使用的vue-cli3，可以直接使用[vue-cli-plugin-auto-i18n](https://github.com/xiangmaoshuo/vue-cli-plugin-auto-i18n).
+如果你的项目是使用的vue-cli3，可以直接使用[vue-cli-plugin-transform-i18n](https://github.com/xiangmaoshuo/vue-cli-plugin-transform-i18n).
 

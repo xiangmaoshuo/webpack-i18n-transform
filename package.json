@@ -1,6 +1,6 @@
 {
-  "name": "webpack-auto-i18n",
-  "version": "1.0.0",
+  "name": "webpack-i18n-transform",
+  "version": "0.0.1",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -18,5 +18,12 @@
     "loader-utils": "^2.0.0",
     "querystring": "^0.2.0",
     "xlsx": "^0.16.8"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:xiangmaoshuo/webpack-i18n-transform.git"
   }
 }
