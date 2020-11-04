@@ -65,5 +65,5 @@ export default {
  2. 在使用上述loader时，需要注意loader的先后顺序，最好是先等babel之类的loader先处理完js，然后再进行国际化替换;
 
 ### 其他
-如果你的项目是使用的vue-cli3，可以直接使用[vue-cli-plugin-transform-i18n](https://github.com/xiangmaoshuo/vue-cli-plugin-transform-i18n).
+如果你的项目是使用的vue-cli3，可以直接使用[@xtg/vue-cli-plugin-i18n](https://github.com/xiangmaoshuo/vue-cli-plugin-i18n).
 

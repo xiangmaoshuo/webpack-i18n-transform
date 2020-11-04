@@ -1,12 +1,13 @@
 {
   "name": "webpack-i18n-transform",
-  "version": "0.0.1",
-  "description": "",
+  "version": "0.0.2",
+  "description": "a webpack plugin that can convert chinese to i18n",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
+  "author": "xms",
+  "keywords": ["i18n"],
   "license": "ISC",
   "dependencies": {
     "@babel/core": "^7.12.3",
