@@ -23,7 +23,7 @@
   |:-|:-|:-|
   |vueTmplRegExp|RegExp|匹配处理.vue文件中的template的loader|
 
-2. for-excel: 如果你的国际化是基于excel文件来管理的，那么可以使用该loader来自动解析; 
+2. for-excel: 如果你的国际化是基于excel文件来管理的，那么可以使用该loader来自动解析;
 
 |属性|类型|默认值|说明|
 |:-|:-|:-|:-|

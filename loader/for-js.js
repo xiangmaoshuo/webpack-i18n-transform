@@ -22,35 +22,45 @@ const excludeRegExp = /node_modules/;
 module.exports = function loader(source) {
 
   const {
+    generateZhPath,
+    getI18nPath,
     exclude = excludeRegExp,
-    disableRegExp = disableI18nRegExp
+    disableRegExp = disableI18nRegExp,
   } = loaderUtils.getOptions(this);
 
   if (isExclude(this.resource, exclude) || disableRegExp.test(source)) {
     return source;
   }
 
-  const i18nList = new Map();
-
-  function i18nCollect(hash, value) {
-    if (!i18nList.has(hash)) {
-      i18nList.set(hash, value);
-    }
-  }
-
   const ast = parse(source, {
     sourceType: 'module',
   });
 
-  traverse(ast, traverseOptions, null, { callback: i18nCollect });
+  if (generateZhPath) {
+    const map = new Map();
+    traverse(ast, traverseOptions, null, { callback: getCallback(map) });
+    const { code } = generate(ast, {}, source);
 
-  const { code } = generate(ast, {}, source);
+    if (!map.size) { return code; }
 
-  this.i18nList.set(this.resource, i18nList);
-
-  if (!i18nList.size) {
-    return code;
+    const query = JSON.stringify({ key: this.resource, val: [...map.entries()] });
+    const loaderPath = this.loaders[this.loaderIndex].path.replace('for-js', 'for-generate-zh');
+    return `
+      import ${loaderUtils.stringifyRequest(this, `!!${loaderPath}?${query}!${this.resourcePath}`)};
+      import { $t } from ${getI18nPath(this)};
+      ${code}
+    `;
   }
 
-  return `import { $t } from ${this.i18nPath};\n${code}`;
+  traverse(ast, traverseOptions);
+  const { code } = generate(ast, {}, source);
+  return code;
+}
+
+function getCallback(map) {
+  return function cb(hash, value) {
+    if (!map.has(hash)) {
+      map.set(hash, value);
+    }
+  }
 }

@@ -8,7 +8,7 @@ function hasChinese(str) {
 
 function generateI18nNode(value, cb, args = []) {
   const hashText = hash(value);
-  cb(hashText, value);
+  cb && cb(hashText, value);
   if (args.length) {
     return t.callExpression(t.identifier('$t'), [t.stringLiteral(hashText), t.arrayExpression(args)]);
   }
