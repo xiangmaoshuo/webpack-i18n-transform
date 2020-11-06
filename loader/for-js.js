@@ -20,7 +20,6 @@ const excludeRegExp = /node_modules/;
 
 // 核心loader，主要是将js中的中文进行ast语法分析，找出其中的中文并替换成$t('xxx', ...)语法
 module.exports = function loader(source) {
-
   const {
     generateZhPath,
     i18nPath,
@@ -32,32 +31,27 @@ module.exports = function loader(source) {
     return source;
   }
 
-  const ast = parse(source, {
-    sourceType: 'module',
-  });
+  const map = new Map();
+  const ast = parse(source, { sourceType: 'module' });
+  traverse(ast, traverseOptions, null, { callback: getCallback(map) });
+  const { code } = generate(ast, {}, source);
+  if (!map.size) { return code; }
 
+  let prifix = '';
   if (generateZhPath) {
-    const map = new Map();
-    traverse(ast, traverseOptions, null, { callback: getCallback(map) });
-    const { code } = generate(ast, {}, source);
-
-    if (!map.size) { return code; }
-
     const query = {
       key: btoa(this.resource),
       val: btoa(JSON.stringify([...map.entries()]))
     };
     const loaderPath = this.loaders[this.loaderIndex].path.replace('for-js', 'for-generate-zh');
-    return `
-      import ${loaderUtils.stringifyRequest(this, `!!${loaderPath}?${JSON.stringify(query)}!${this.resourcePath}`)};
-      import { $t } from ${loaderUtils.stringifyRequest(this, i18nPath)};
-      ${code}
-    `;
+    prifix = `import ${loaderUtils.stringifyRequest(this, `!!${loaderPath}?${JSON.stringify(query)}!${this.resourcePath}`)};`;
   }
 
-  traverse(ast, traverseOptions);
-  const { code } = generate(ast, {}, source);
-  return code;
+  return `
+    ${prifix}
+    import { $t } from ${loaderUtils.stringifyRequest(this, i18nPath)};
+    ${code}
+  `;
 }
 
 function getCallback(map) {
