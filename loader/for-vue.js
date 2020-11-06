@@ -37,10 +37,12 @@ module.exports.pitch = function pitch() {
     ].join('!'));
   }
 
+  const i18nLoaderQuery = JSON.stringify({ generateZhPath: options.generateZhPath, i18nPath: options.i18nPath });
+
   // 修改request中的loader顺序，在template编译后调用for-js.js
   const request = genRequest([
     ...postLoaders.slice(0, vueTmplLoaderIndex),
-    i18nLoaderPath,
+    `${i18nLoaderPath}?${i18nLoaderQuery}`,
     ...postLoaders.slice(vueTmplLoaderIndex),
     ...preLoaders
   ]);

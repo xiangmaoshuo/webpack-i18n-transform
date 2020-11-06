@@ -2,7 +2,7 @@ const path = require('path');
 const fs = require('fs');
 const loaderUtils = require('loader-utils');
 const RuleSet = require('webpack/lib/RuleSet');
-const { isExistsPath } = require('./utils');
+const { isExistsPath, isAbsolutePath, isDev } = require('./utils');
 const { name } = require('./package.json');
 
 const PLUGIN_NAME = 'TransformI18nWebpackPlugin';
@@ -11,34 +11,27 @@ const getRegExp = (str) => new RegExp(`${name}(\\\/|\\\\)loader(\\\/|\\\\)for-${
 module.exports = class TransformI18nWebpackPlugin {
   constructor({
     i18nPath,
-    generateZhPath = false
+    generateZhPath = isDev()
   } = {}) {
-    this.i18nPath = i18nPath;
-    this.i18nList = new Map();
-    this.generateZhPath = true;
-
-    // 如果采用的是默认的$tPath，则excel必须存在
-    if (!this.i18nPath) {
+    if (!i18nPath) {
       throw new Error('TransformI18nWebpackPlugin: i18nPath is required!');
     }
+    this.i18nPath = i18nPath;
+    this.i18nList = new Map();
+    this.generateZhPath = generateZhPath;
   }
   apply(compiler) {
     const rawRules = compiler.options.module.rules;
     const { rules } = new RuleSet(rawRules);
+    const { i18nPath } = this;
 
-    let ctxI18nPath = null;
-
-    // 这里只处理了for-js，因为excel和vue都是可选的
-    setOptions(matcher(rules, getRegExp('js')), {
+    const extraOptions = {
       generateZhPath: this.generateZhPath,
-      getI18nPath: (ctx) => {
-        if (ctxI18nPath) { return ctxI18nPath; }
-        const rc = ctx.rootContext;
-        const i18nPath = isExistsPath(path.resolve(rc, this.i18nPath));
-        ctxI18nPath = loaderUtils.stringifyRequest(ctx, i18nPath);
-        return ctxI18nPath;
-      },
-    });
+      i18nPath: isExistsPath(isAbsolutePath(i18nPath) ? i18nPath : path.resolve(compiler.context, i18nPath)),
+    };
+    
+    setOptions(matcher(rules, getRegExp('js')), extraOptions);
+    setOptions(matcher(rules, getRegExp('vue')), extraOptions);
 
     compiler.options.module.rules = rules;
 
@@ -54,11 +47,6 @@ module.exports = class TransformI18nWebpackPlugin {
     });
 
     if (this.generateZhPath) {
-      // 目前收cache-loader影响，导致收集中文时不全面
-      // 现阶段在开启生成中文Map时，先将缓存清空
-      // 所以在启动项目时肯定会比较慢
-      const cacheDir = path.resolve(compiler.context, 'node_modules/.cache');
-      deleteFolderRecursive(cacheDir);
       compiler.hooks.emit.tapPromise(PLUGIN_NAME, async (compilation) => {
         const { modules, assets } = compilation;
         const { i18nList } = this;
@@ -124,17 +112,3 @@ function matcher(rules, regExp) {
     return pre;
   }, []);
 }
-
-function deleteFolderRecursive(dir) {
-  if( fs.existsSync(dir) ) {
-    fs.readdirSync(dir).forEach(function(file) {
-      const curPath = path.resolve(dir, file);
-      if(fs.statSync(curPath).isDirectory()) {
-        deleteFolderRecursive(curPath);
-      } else {
-        fs.unlinkSync(curPath);
-      }
-    });
-    fs.rmdirSync(dir);
-  }
-};

@@ -23,7 +23,7 @@ module.exports = function loader(source) {
 
   const {
     generateZhPath,
-    getI18nPath,
+    i18nPath,
     exclude = excludeRegExp,
     disableRegExp = disableI18nRegExp,
   } = loaderUtils.getOptions(this);
@@ -47,7 +47,7 @@ module.exports = function loader(source) {
     const loaderPath = this.loaders[this.loaderIndex].path.replace('for-js', 'for-generate-zh');
     return `
       import ${loaderUtils.stringifyRequest(this, `!!${loaderPath}?${query}!${this.resourcePath}`)};
-      import { $t } from ${getI18nPath(this)};
+      import { $t } from ${loaderUtils.stringifyRequest(this, i18nPath)};
       ${code}
     `;
   }

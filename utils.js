@@ -1,4 +1,5 @@
 const t = require('@babel/types');
+const path = require('path');
 const fs = require('fs');
 const hash = require('hash-sum');
 
@@ -78,3 +79,21 @@ exports.isExclude = function(resource, exclude = []) {
 }
 
 exports.isDev = () => process.env.NODE_ENV === 'development';
+
+exports.deleteFolderRecursive = function deleteFolderRecursive(dir) {
+  if( fs.existsSync(dir) ) {
+    fs.readdirSync(dir).forEach(function(file) {
+      const curPath = path.resolve(dir, file);
+      if(fs.statSync(curPath).isDirectory()) {
+        deleteFolderRecursive(curPath);
+      } else {
+        fs.unlinkSync(curPath);
+      }
+    });
+    fs.rmdirSync(dir);
+  }
+};
+
+exports.isAbsolutePath = function isAbsolutePath(str) {
+  return path.posix.isAbsolute(str) || path.win32.isAbsolute(str);
+}
