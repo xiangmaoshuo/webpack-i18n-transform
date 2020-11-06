@@ -5,7 +5,7 @@ const { parse } = require('@babel/parser');
 const traverse = require('@babel/traverse').default;
 const generate = require('@babel/generator').default;
 
-const { isExclude } = require('../utils');
+const { isExclude, btoa } = require('../utils');
 
 const traversePath = path.resolve(__dirname, '../babel-traverse');
 const traverseOptions = fs.readdirSync(traversePath, 'utf-8')
@@ -43,10 +43,13 @@ module.exports = function loader(source) {
 
     if (!map.size) { return code; }
 
-    const query = JSON.stringify({ key: this.resource, val: [...map.entries()] });
+    const query = {
+      key: btoa(this.resource),
+      val: btoa(JSON.stringify([...map.entries()]))
+    };
     const loaderPath = this.loaders[this.loaderIndex].path.replace('for-js', 'for-generate-zh');
     return `
-      import ${loaderUtils.stringifyRequest(this, `!!${loaderPath}?${query}!${this.resourcePath}`)};
+      import ${loaderUtils.stringifyRequest(this, `!!${loaderPath}?${JSON.stringify(query)}!${this.resourcePath}`)};
       import { $t } from ${loaderUtils.stringifyRequest(this, i18nPath)};
       ${code}
     `;

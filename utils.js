@@ -97,3 +97,13 @@ exports.deleteFolderRecursive = function deleteFolderRecursive(dir) {
 exports.isAbsolutePath = function isAbsolutePath(str) {
   return path.posix.isAbsolute(str) || path.win32.isAbsolute(str);
 }
+
+const Buffer = global.Buffer || require('buffer').Buffer;
+
+exports.btoa = function btoa(str) {
+  return Buffer.from(str).toString('base64');
+}
+
+exports.atob = function atob(str) {
+  return Buffer.from(str, 'base64').toString();
+}

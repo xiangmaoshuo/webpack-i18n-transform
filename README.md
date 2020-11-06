@@ -6,14 +6,13 @@
   plugins: [
     new TransformI18nWebpackPlugin({
       i18nPath: 'src/i18n/index.js',
-      generateZhPath: false,
     }),
   ]
 ```
 |属性|类型|默认值|说明|
 |:-|:-|:-|:-|
 |i18nPath|String|-|i18n地址，该文件需要向外暴露一个$t接口，类似 export { $t }|
-|generateZhPath|Boolean|false|是否生成i18n.html，该html中展示了当前项目中所有的中文（i18n格式），`由于cache-loader缓存会影响中文收集，所以目前开启了该选项时，会删除.cache文件夹，从而使得cache-loader失效，影响构建速度，开发者需要注意`，后续有更好的解决方案再进行修复|
+|generateZhPath|Boolean|process.env.NODE_ENV === 'development'|是否生成i18n.html，该html中展示了当前项目中所有的中文（i18n格式）|
 
 ### 代码说明
 插件内提供了三个loader：
