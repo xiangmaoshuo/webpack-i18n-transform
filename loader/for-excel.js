@@ -28,7 +28,7 @@ module.exports = function loader(source) {
     return `
       import result from ${getLangPath(locale)};
       var locale = '${locale}';
-      var messages = { ${locale}: result };
+      var messages = { '${locale}': result };
       var asyncLangs = {
         ${asyncLangs.map(l => `${JSON.stringify(l)}: function() { return import(${getLangPath(l)}); }`).join(',')}
       };
