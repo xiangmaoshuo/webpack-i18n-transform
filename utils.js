@@ -8,8 +8,10 @@ function hasChinese(str) {
 }
 
 function generateI18nNode(value, cb, args = []) {
-  const hashText = hash(value);
-  cb && cb(hashText, value);
+  // 去掉首尾空格
+  const str = value.trim();
+  const hashText = hash(str);
+  cb && cb(hashText, str);
   if (args.length) {
     return t.callExpression(t.identifier('$t'), [t.stringLiteral(hashText), t.arrayExpression(args)]);
   }
