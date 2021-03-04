@@ -13,6 +13,8 @@
 |:-|:-|:-|:-|
 |i18nPath|String|-|i18n地址，该文件需要向外暴露一个$t接口，类似 export { $t }|
 |generateZhPath|Boolean|process.env.NODE_ENV === 'development'|是否生成i18n.html，该html中展示了当前项目中所有的中文（i18n格式）|
+|parseObjectProperty|Boolean|false|是否启用babel的ObjectProperty规则，默认对vue文件的template启用，该规则主要是让i18n不处理vue文件编译后生成的expression字段|
+|parseBinaryExpression|Boolean|false|是否启用babel的BinaryExpression规则，默认不启用，该规则将处理形如'a' + b这种表达式为一个i18n语句|
 
 ### 代码说明
 插件内提供了三个loader：
@@ -58,6 +60,7 @@ export default {
 2. 'xxx'.concat(num).concat('xxx'); // 模板字符串被babel转换后的格式
 3. 'xxx' + num; // 字符串拼接
 4. \`xxx${num}`; // 模板字符串
+5. 特别说明：该插件在提取字符串后会`对字符串做trim处理`，请开发者注意
 
 ### 说明
  1. 以上的字符串中必须包含有中文才会被替换；`num`可以是一个变量或其他任何js表达式；

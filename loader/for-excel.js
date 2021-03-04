@@ -63,13 +63,13 @@ function analyzeExcel(source, resourcePath) {
   const langs = []; // 收集语言集合
   const result = keys.filter(k => /^[A-Z]1$/.test(k))
     .reduce((pre, k) => {
-      let { v } = firstSheet[k];
-      v = v && v.trim();
-      if (!v) {
+      let { w } = firstSheet[k];
+      w = w && w.trim();
+      if (!w) {
         throw new Error('excel解析失败: 第一行不能有空值'); 
       }
-      langs.push({ key: k.match(/[A-Z]/)[0], val: v });
-      pre[v] = {};
+      langs.push({ key: k.match(/[A-Z]/)[0], val: w });
+      pre[w] = {};
       return pre;
     }, {});
 
@@ -79,13 +79,13 @@ function analyzeExcel(source, resourcePath) {
       return;
     }
     const i = k.match(/\d+/)[0];
-    let { v } = firstSheet[k];
-    v = v && v.trim();
-    const hashValue = hash(v);
+    let { w } = firstSheet[k];
+    w = w && w.trim();
+    const hashValue = hash(w);
     langs.forEach(({ key, val }) => {
       const target = firstSheet[`${key}${i}`];
       if (target) {
-        result[val][hashValue] = target.v && target.v.trim();
+        result[val][hashValue] = target.w && target.w.trim();
       }
     });
   });
