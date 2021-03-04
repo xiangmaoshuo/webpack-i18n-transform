@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>i18n</title>
+  </head>
+  <body>
+    <script>
+      let chooseType = 'original';
+      function choose(type) {
+        chooseType = type;
+      }
+      function parse () {
+        console.log(123);
+        let array = document.querySelector('#textarea').value.split(/\n+/);
+        if (chooseType !== 'original') {
+          const k = chooseType === 'upper' ? 'toUpperCase' : 'toLowerCase';
+          array = array.map(str => `${str.slice(0, 1)[k]()}${str.slice(1)}`);
+        }
+        document.querySelector('#pre').innerHTML = array.join('\n');
+      }
+    </script>
+    <div id="app"></div>
+    <textarea name="" id="textarea" cols="30" rows="10"></textarea>
+    <div>
+      <p>首字母处理方式：</p>
+      <p>
+        <label><input name="choose" type="radio" id="upper" onclick="choose('upper')">大写</label>
+        <label><input name="choose" type="radio" id="lower" onclick="choose('lower')">小写</label>
+        <label><input name="choose" type="radio" id="original" checked onclick="choose('original')">不处理</label>
+      </p>
+    </div>
+    <button onclick="parse()">parse</button>
+    <pre id="pre"></pre>
+    <!-- built files will be auto injected -->
+  </body>
+</html>
