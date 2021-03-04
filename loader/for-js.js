@@ -23,12 +23,19 @@ const excludeRegExp = /node_modules/;
 
 // 核心loader，主要是将js中的中文进行ast语法分析，找出其中的中文并替换成$t('xxx', ...)语法
 module.exports = function loader(source) {
-  const {
-    generateZhPath,
-    i18nPath,
-    exclude = excludeRegExp,
-    disableRegExp = disableI18nRegExp,
-  } = loaderUtils.getOptions(this);
+  /**
+   * {
+        generateZhPath,
+        i18nPath,
+        exclude = excludeRegExp,
+        disableRegExp = disableI18nRegExp,
+        parseObjectProperty,
+        parseBinaryExpression
+      }
+   */
+  const loaderOptions = loaderUtils.getOptions(this);
+  const exclude = loaderOptions.exclude || excludeRegExp;
+  const disableRegExp = loaderOptions.disableRegExp || disableI18nRegExp;
 
   if (isExclude(this.resource, exclude) || disableRegExp.test(source)) {
     return source;
@@ -44,12 +51,17 @@ module.exports = function loader(source) {
 
   const map = new Map();
   const ast = parse(source, { sourceType: 'module' });
-  traverse(ast, traverseOptions, null, { callback: getCallback(map), isVueTmpl });
+  const options = {
+    callback: getCallback(map),
+    parseObjectProperty: loaderOptions.parseObjectProperty || isVueTmpl,
+    parseBinaryExpression: loaderOptions.parseBinaryExpression
+  };
+  traverse(ast, traverseOptions, null, options);
   const { code } = generate(ast, {}, source);
   if (!map.size) { return code; }
 
   let prifix = '';
-  if (generateZhPath) {
+  if (loaderOptions.generateZhPath) {
     const query = {
       key: btoa(this.resource),
       val: btoa(JSON.stringify([...map.entries()]))
@@ -60,7 +72,7 @@ module.exports = function loader(source) {
 
   return `
     ${prifix}
-    import { $t } from ${loaderUtils.stringifyRequest(this, i18nPath)};
+    import { $t } from ${loaderUtils.stringifyRequest(this, loaderOptions.i18nPath)};
     ${code}
   `;
 }

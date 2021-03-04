@@ -9,28 +9,30 @@ const PLUGIN_NAME = 'TransformI18nWebpackPlugin';
 const getRegExp = (str) => new RegExp(`${name}(\\\/|\\\\)loader(\\\/|\\\\)for-${str}.js$`);
 
 module.exports = class TransformI18nWebpackPlugin {
-  constructor({
-    i18nPath,
-    generateZhPath = isDev()
-  } = {}) {
-    if (!i18nPath) {
+  constructor(opts) {
+    const options = Object.assign({
+      i18nPath: null, // required
+      generateZhPath: isDev(),
+      parseObjectProperty: false,
+      parseBinaryExpression: false
+    }, opts);
+    if (!options.i18nPath) {
       throw new Error('TransformI18nWebpackPlugin: i18nPath is required!');
     }
-    this.i18nPath = i18nPath;
+    this.options = options;
     this.i18nList = new Map();
-    this.generateZhPath = generateZhPath;
   }
   apply(compiler) {
     const rawRules = compiler.options.module.rules;
     const { rules } = new RuleSet(rawRules);
-    const { i18nPath } = this;
+    const { i18nPath, generateZhPath, ...remainOptions } = this.options;
 
     const extraOptions = {
-      generateZhPath: this.generateZhPath,
+      generateZhPath,
       i18nPath: isExistsPath(isAbsolutePath(i18nPath) ? i18nPath : path.resolve(compiler.context, i18nPath)),
     };
     
-    setOptions(matcher(rules, getRegExp('js')), extraOptions);
+    setOptions(matcher(rules, getRegExp('js')), Object.assign(remainOptions, extraOptions));
     setOptions(matcher(rules, getRegExp('vue')), extraOptions);
 
     compiler.options.module.rules = rules;
@@ -76,7 +78,27 @@ module.exports = class TransformI18nWebpackPlugin {
             <title>i18n中文列表</title>
           </head>
           <body>
-            <pre>${[...finalI18nList.values()].join('\n')}</pre>
+            <style>
+            * {
+                padding: 0;
+                margin: 0;
+              }
+              ul {
+                list-style: none;
+              }
+              li {
+                border-bottom: 1px dashed #ccc;
+                padding-left: 10px;
+                line-height: 24px;
+                font-size: 14px;
+              }
+              pre {
+                font-family: Microsoft YaHei;
+              }
+            </style>
+            <ul>
+            ${[...finalI18nList.values()].map(str => `<li><pre>${str}</pre></li>`).join('')}
+            </ul>
           </body>
         </html>
         `;

@@ -14,9 +14,8 @@ const t = require('@babel/types');
     ]
   }
  */
-module.exports = function (path, { callback, isVueTmpl }) {
-  // 只处理vue template模块
-  if (!isVueTmpl) return;
+module.exports = function (path, { callback, parseObjectProperty = true }) {
+  if (!parseObjectProperty) return;
   const node = path.node;
   if (node.key.name !== 'directives') return;
   if (!t.isArrayExpression(node.value)) return;
