@@ -12,7 +12,6 @@ module.exports = class TransformI18nWebpackPlugin {
   constructor(opts) {
     const options = Object.assign({
       i18nPath: null, // required
-      generateZhPath: isDev(),
       parseObjectProperty: false,
       parseBinaryExpression: false
     }, opts);
@@ -23,9 +22,10 @@ module.exports = class TransformI18nWebpackPlugin {
     this.i18nList = new Map();
   }
   apply(compiler) {
+    const generateZhPath = isDev();
     const rawRules = compiler.options.module.rules;
     const { rules } = new RuleSet(rawRules);
-    const { i18nPath, generateZhPath, ...remainOptions } = this.options;
+    const { i18nPath, ...remainOptions } = this.options;
 
     const extraOptions = {
       generateZhPath,
@@ -48,7 +48,7 @@ module.exports = class TransformI18nWebpackPlugin {
       );
     });
 
-    if (this.generateZhPath) {
+    if (generateZhPath) {
       compiler.hooks.emit.tapPromise(PLUGIN_NAME, async (compilation) => {
         const { modules, assets } = compilation;
         const { i18nList } = this;
