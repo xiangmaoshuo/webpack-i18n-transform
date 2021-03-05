@@ -78,7 +78,7 @@ module.exports = class TransformI18nWebpackPlugin {
         }
 
         // 初始化， 默认每次都是新增
-        const i18nHtmlData = i18nDiff(finalI18nList, existI18nData);
+        const { add, reduce, common } = i18nDiff(finalI18nList, existI18nData);
          
         const i18nHtml = `
         <!DOCTYPE html>
@@ -113,11 +113,26 @@ module.exports = class TransformI18nWebpackPlugin {
               pre {
                 font-family: Microsoft YaHei;
               }
+              .total-bar {
+                padding: 10px;
+                background-color: #000;
+                color: #fff;
+                user-select: none;
+              }
+              .total-bar span {
+                margin-left: 10px;
+                margin-right: 10px;
+              }
             </style>
+            <p class="total-bar">
+              <span>新增数量：${add.length}</span>
+              <span>减少数量：${reduce.length}</span>
+              <span>${add.length || reduce.length ? '相同' : '总'}数量：${common.length}</span>
+            </p>
             <ul>
-            ${i18nHtmlData.add.map(str => `<li class="add"><pre>${str}</pre></li>`).join('')}
-            ${i18nHtmlData.reduce.map(str => `<li class="reduce"><pre>${str}</pre></li>`).join('')}
-            ${i18nHtmlData.common.map(str => `<li><pre>${str}</pre></li>`).join('')}
+            ${add.map(str => `<li class="add"><pre>${str}</pre></li>`).join('')}
+            ${reduce.map(str => `<li class="reduce"><pre>${str}</pre></li>`).join('')}
+            ${common.map(str => `<li><pre>${str}</pre></li>`).join('')}
             </ul>
           </body>
         </html>
