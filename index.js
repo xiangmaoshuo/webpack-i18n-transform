@@ -61,13 +61,25 @@ module.exports = class TransformI18nWebpackPlugin {
         const effectiveResource = [...i18nList.keys()].filter(k => resourceObj[k]);
   
         // 该项目中收集到的中文及其hash
-        const finalI18nList = effectiveResource.reduce((map, k) => {
+        const finalI18nList = Array.from(effectiveResource.reduce((map, k) => {
           i18nList.get(k).forEach(([key, value]) => {
             map.set(key, value);
           });
           return map;
-        }, new Map());
+        }, new Map()).values());
 
+        let existI18nData = [];
+
+        // 从modules中寻找当前项目是否使用excel来配置翻译文件
+        const zhLocale = modules.find(m => /\.xlsx?\?lang=\w+?&default=1$/.test(m.id));
+        // 如果有，则将已翻译的中文和当前项目中收集到的中文进行diff
+        if (zhLocale) {
+          existI18nData = Object.values(eval(`(() => {${zhLocale._source._value.trim().replace(/export default result;$/, 'return result')}})()`));
+        }
+
+        // 初始化， 默认每次都是新增
+        const i18nHtmlData = i18nDiff(finalI18nList, existI18nData);
+         
         const i18nHtml = `
         <!DOCTYPE html>
         <html lang="en">
@@ -92,12 +104,20 @@ module.exports = class TransformI18nWebpackPlugin {
                 line-height: 24px;
                 font-size: 14px;
               }
+              .add {
+                background-color: #ecfdf0;
+              }
+              .reduce {
+                background-color: #fbe9eb;
+              }
               pre {
                 font-family: Microsoft YaHei;
               }
             </style>
             <ul>
-            ${[...finalI18nList.values()].map(str => `<li><pre>${str}</pre></li>`).join('')}
+            ${i18nHtmlData.add.map(str => `<li class="add"><pre>${str}</pre></li>`).join('')}
+            ${i18nHtmlData.reduce.map(str => `<li class="reduce"><pre>${str}</pre></li>`).join('')}
+            ${i18nHtmlData.common.map(str => `<li><pre>${str}</pre></li>`).join('')}
             </ul>
           </body>
         </html>
@@ -133,4 +153,52 @@ function matcher(rules, regExp) {
     }
     return pre;
   }, []);
+}
+
+// 根据两组数据，得到它们的交集差集
+function i18nDiff(currentData = [], compareData = []) {
+  const result = {
+    reduce: [],
+    common: [],
+    add: []
+  }
+
+  // 如果比较数据为空数组，则当前数据全为新增
+  if (!compareData.length) {
+    result.add = currentData;
+    return result;
+  }
+
+  // 如果当前数据为空，则比较数据全为减少的
+  if (!currentData.length) {
+    result.reduce = compareData;
+    return result;
+  }
+
+  const commonData = result.common;
+  const addData = result.add;
+  const copyCompareData = [...compareData];
+
+  for (let i = 0, len = currentData.length; i < len; i++) {
+    const current = currentData[i];
+    let index = -1;
+    for (let j = 0, len2 = copyCompareData.length; j < len2; j++) {
+      if (copyCompareData[j] === current) {
+        index = j;
+        break;
+      }
+    }
+    // 如果两个数组中都有该项，则添加到commonData，并且删除copyCompareData中的对应项
+    if (index > -1) {
+      copyCompareData.splice(index, 1);
+      commonData.push(current);
+    } else {
+      // 则表示当前项为新增项
+      addData.push(current);
+    }
+  }
+
+  // 最后如果copyCompareData还有剩余，则是减少的
+  result.reduce = copyCompareData;
+  return result;
 }

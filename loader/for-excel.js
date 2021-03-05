@@ -10,6 +10,7 @@ const excelMap = {};
 module.exports = function loader(source) {
   const { resourcePath } = this;
   const query = qs.parse(this.resourceQuery.slice(1));
+  // 这个输出的结构也不要随便改，插件的emit事件中会去使用该result
   if (query.lang) {
     return `
       var result = ${JSON.stringify(excelMap[resourcePath][query.lang])};
@@ -17,30 +18,19 @@ module.exports = function loader(source) {
     `;
   }
   const { result, langs } = analyzeExcel(source, resourcePath);
-  const options = loaderUtils.getOptions(this);
-  const { async = true } = options;
-  const locale = options.locale || langs[0]; // 默认中文
+  const locale = langs[0]; // 默认中文
 
   const asyncLangs = langs.filter(l => l !== locale); // 异步加载的语言
-  const getLangPath = (l) => loaderUtils.stringifyRequest(this, `${resourcePath}?lang=${l}`);
+  // 该方法不要随便改，在插件的emit方法中会使用该path去匹配module
+  const getLangPath = (l) => loaderUtils.stringifyRequest(this, `${resourcePath}?lang=${l}${l === locale ? '&default=1': ''}`);
 
-  if (async) {
-    return `
-      import result from ${getLangPath(locale)};
-      var locale = '${locale}';
-      var messages = { '${locale}': result };
-      var asyncLangs = {
-        ${asyncLangs.map(l => `${JSON.stringify(l)}: function() { return import(${getLangPath(l)}); }`).join(',')}
-      };
-      export default messages;
-      export { locale, asyncLangs };
-    `;
-  }
-  
   return `
+    import result from ${getLangPath(locale)};
     var locale = '${locale}';
-    var messages = ${JSON.stringify(result)};
-    var asyncLangs = {};
+    var messages = { '${locale}': result };
+    var asyncLangs = {
+      ${asyncLangs.map(l => `${JSON.stringify(l)}: function() { return import(${getLangPath(l)}); }`).join(',')}
+    };
     export default messages;
     export { locale, asyncLangs };
   `;
