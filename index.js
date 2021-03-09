@@ -1,16 +1,15 @@
 const path = require('path');
-const fs = require('fs');
-const loaderUtils = require('loader-utils');
 const RuleSet = require('webpack/lib/RuleSet');
 const { isExistsPath, isAbsolutePath, isDev } = require('./utils');
 const { name } = require('./package.json');
 
 const PLUGIN_NAME = 'TransformI18nWebpackPlugin';
-const getRegExp = (str) => new RegExp(`${name}(\\\/|\\\\)loader(\\\/|\\\\)for-${str}.js$`);
+const getRegExp = str => new RegExp(`${name}(\\/|\\\\)loader(\\/|\\\\)for-${str}.js$`);
 
 module.exports = class TransformI18nWebpackPlugin {
   constructor(opts) {
     const options = Object.assign({
+      locale: null, // 默认excel第一列（中文）
       i18nPath: null, // required
       parseObjectProperty: false,
       parseBinaryExpression: false
@@ -25,31 +24,32 @@ module.exports = class TransformI18nWebpackPlugin {
     const generateZhPath = isDev();
     const rawRules = compiler.options.module.rules;
     const { rules } = new RuleSet(rawRules);
-    const { i18nPath, ...remainOptions } = this.options;
+    const { i18nPath, locale, ...remainOptions } = this.options;
 
     const extraOptions = {
       generateZhPath,
-      i18nPath: isExistsPath(isAbsolutePath(i18nPath) ? i18nPath : path.resolve(compiler.context, i18nPath)),
+      i18nPath: isExistsPath(isAbsolutePath(i18nPath) ? i18nPath : path.resolve(compiler.context, i18nPath))
     };
-    
+
     setOptions(matcher(rules, getRegExp('js')), Object.assign(remainOptions, extraOptions));
     setOptions(matcher(rules, getRegExp('vue')), extraOptions);
+    setOptions(matcher(rules, getRegExp('excel')), { locale });
 
     compiler.options.module.rules = rules;
 
     // 获取compilation
-    compiler.hooks.compilation.tap(PLUGIN_NAME, (compilation) => {
+    compiler.hooks.compilation.tap(PLUGIN_NAME, compilation => {
       // 给ctx添加变量，以便loader能够获取它
       compilation.hooks.normalModuleLoader.tap(
         PLUGIN_NAME,
-        (ctx) => {
+        ctx => {
           ctx.i18nList = this.i18nList;
         },
       );
     });
 
     if (generateZhPath) {
-      compiler.hooks.emit.tapPromise(PLUGIN_NAME, async (compilation) => {
+      compiler.hooks.emit.tapPromise(PLUGIN_NAME, async compilation => {
         const { modules, assets } = compilation;
         const { i18nList } = this;
         const resourceObj = modules.reduce((pre, { resource }) => {
@@ -59,7 +59,7 @@ module.exports = class TransformI18nWebpackPlugin {
           return pre;
         }, {});
         const effectiveResource = [...i18nList.keys()].filter(k => resourceObj[k]);
-  
+
         // 该项目中收集到的中文及其hash
         const finalI18nList = Array.from(effectiveResource.reduce((map, k) => {
           i18nList.get(k).forEach(([key, value]) => {
@@ -79,7 +79,7 @@ module.exports = class TransformI18nWebpackPlugin {
 
         // 初始化， 默认每次都是新增
         const { add, reduce, common } = i18nDiff(finalI18nList, existI18nData);
-         
+
         const i18nHtml = `
         <!DOCTYPE html>
         <html lang="en">
@@ -137,22 +137,22 @@ module.exports = class TransformI18nWebpackPlugin {
           </body>
         </html>
         `;
-  
+
         assets['i18n.html'] = {
           source: () => i18nHtml,
-          size: () => i18nHtml.length,
+          size: () => i18nHtml.length
         };
       });
     }
   }
-}
+};
 
 function setOptions(rules, options = {}) {
-  rules.forEach((rule) => {
+  rules.forEach(rule => {
     rule.options = {
       ...(rule.options || {}),
-      ...options,
-    }
+      ...options
+    };
   });
 }
 
@@ -176,7 +176,7 @@ function i18nDiff(currentData = [], compareData = []) {
     reduce: [],
     common: [],
     add: []
-  }
+  };
 
   // 如果比较数据为空数组，则当前数据全为新增
   if (!compareData.length) {

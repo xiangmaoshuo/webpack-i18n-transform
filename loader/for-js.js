@@ -75,12 +75,12 @@ module.exports = function loader(source) {
     import { $t } from ${loaderUtils.stringifyRequest(this, loaderOptions.i18nPath)};
     ${code}
   `;
-}
+};
 
 function getCallback(map) {
   return function cb(hash, value) {
     if (!map.has(hash)) {
       map.set(hash, value);
     }
-  }
+  };
 }

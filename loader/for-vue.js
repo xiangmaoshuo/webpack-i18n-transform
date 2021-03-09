@@ -24,9 +24,8 @@ module.exports.pitch = function pitch() {
   postLoaders.pop();
 
   // 匹配处理.vue文件中的template的loader，可以通过options覆盖
-  const vueTmplRegExp = options.vueTmplRegExp || /vue\-loader.+templateLoader.js$/;
+  const vueTmplRegExp = options.vueTmplRegExp || /vue-loader.+templateLoader.js$/;
   const vueTmplLoaderIndex = postLoaders.findIndex(l => vueTmplRegExp.test(l.path));
-  const vueTmplLoader = postLoaders[vueTmplLoaderIndex];
 
   const genRequest = loaders => {
     const loaderStrings = loaders.map(loader => typeof loader === 'string' ? loader : loader.request);
@@ -35,7 +34,7 @@ module.exports.pitch = function pitch() {
       ...loaderStrings,
       this.resourcePath + this.resourceQuery
     ].join('!'));
-  }
+  };
 
   const i18nLoaderQuery = JSON.stringify({ generateZhPath: options.generateZhPath, i18nPath: options.i18nPath });
 
@@ -47,4 +46,4 @@ module.exports.pitch = function pitch() {
     ...preLoaders
   ]);
   return `export * from ${request}`;
-}
+};

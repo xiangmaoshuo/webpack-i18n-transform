@@ -8,4 +8,4 @@ module.exports = function loader() {
   const val = JSON.parse(atob(options.val));
   this.i18nList.set(key, val);
   return '';
-}
+};

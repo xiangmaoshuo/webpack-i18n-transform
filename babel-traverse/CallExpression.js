@@ -1,13 +1,13 @@
 const t = require('@babel/types');
 const { autoGenerateI18nNode } = require('../utils');
 
-module.exports = function (path, { callback }) {
+module.exports = function rule(path, { callback }) {
   const args = [];
   // eg: var a = 'xx'.concat(bb).concat(cc);
   if (isCompiledTmplString(path.node, args)) {
     autoGenerateI18nNode(args, path, callback);
   }
-}
+};
 
 // 是否为编译后的模板字符串
 function isCompiledTmplString(node, args) {

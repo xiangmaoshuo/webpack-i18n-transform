@@ -14,13 +14,13 @@ const t = require('@babel/types');
     ]
   }
  */
-module.exports = function (path, { callback, parseObjectProperty = true }) {
-  if (!parseObjectProperty) return;
+module.exports = function rule(path, { parseObjectProperty = true }) {
+  if (!parseObjectProperty) {return;}
   const node = path.node;
-  if (node.key.name !== 'directives') return;
-  if (!t.isArrayExpression(node.value)) return;
+  if (node.key.name !== 'directives') {return;}
+  if (!t.isArrayExpression(node.value)) {return;}
   const { elements } = node.value;
-  if (elements.find(el => !t.isObjectExpression(el))) return;
+  if (elements.find(el => !t.isObjectExpression(el))) {return;}
 
   const bool = !!elements.find(el => {
     const keyObj = {};
@@ -31,7 +31,7 @@ module.exports = function (path, { callback, parseObjectProperty = true }) {
   });
 
   // 判断是否为 { name, rawName, value, expression } 类型结构
-  if (bool) return;
+  if (bool) {return;}
 
   // 到这里我们就认为此处的expression就是vue指令所对应的属性，而不是我们业务中使用的变量名
   elements.forEach(el => {
@@ -39,4 +39,4 @@ module.exports = function (path, { callback, parseObjectProperty = true }) {
     // 给StringLiteral设置一个忽略标记
     expressNode.value.__ignore = true;
   });
-}
+};

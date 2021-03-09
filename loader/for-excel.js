@@ -1,7 +1,10 @@
-const  xlsx = require('xlsx');
+const xlsx = require('xlsx');
 const qs = require('querystring');
 const hash = require('hash-sum');
 const loaderUtils = require('loader-utils');
+const { name } = require('./package.json');
+
+const errorMsgPrefix = `[${name}][for-excel]: `;
 
 const excelMap = {};
 
@@ -17,12 +20,15 @@ module.exports = function loader(source) {
       export default result;
     `;
   }
-  const { result, langs } = analyzeExcel(source, resourcePath);
-  const locale = langs[0]; // 默认中文
+  const { langs } = analyzeExcel(source, resourcePath);
+  const loaderOptions = loaderUtils.getOptions(this);
 
+  const locale = getLocale(loaderOptions.locale, langs); // 默认中文，也可自定义
+
+  // 除了主语言，其他的语言都异步加载
   const asyncLangs = langs.filter(l => l !== locale); // 异步加载的语言
   // 该方法不要随便改，在插件的emit方法中会使用该path去匹配module
-  const getLangPath = (l) => loaderUtils.stringifyRequest(this, `${resourcePath}?lang=${l}${l === locale ? '&default=1': ''}`);
+  const getLangPath = l => loaderUtils.stringifyRequest(this, `${resourcePath}?lang=${l}${l === locale ? '&default=1': ''}`);
 
   return `
     import result from ${getLangPath(locale)};
@@ -34,6 +40,13 @@ module.exports = function loader(source) {
     export default messages;
     export { locale, asyncLangs };
   `;
+};
+
+// 确定默认locale
+function getLocale(locale, langs) {
+  if (!locale) {return langs[0];}
+  if (langs.includes(locale)) {return locale;}
+  throw new Error(`${errorMsgPrefix}the locale is not exist in excel`);
 }
 
 // 解析excel
@@ -46,7 +59,7 @@ function analyzeExcel(source, resourcePath) {
 
   // 只支持最多26种语言
   if (index < 0) {
-   throw new Error('excel解析失败: 列数不能超过26列'); 
+   throw new Error(`${errorMsgPrefix}The number of columns cannot exceed 26`);
   }
 
   const keys = Object.keys(firstSheet);
@@ -56,21 +69,22 @@ function analyzeExcel(source, resourcePath) {
       let { w } = firstSheet[k];
       w = w && w.trim();
       if (!w) {
-        throw new Error('excel解析失败: 第一行不能有空值'); 
+        throw new Error(`${errorMsgPrefix}The first line cannot have a null value`);
       }
       langs.push({ key: k.match(/[A-Z]/)[0], val: w });
       pre[w] = {};
       return pre;
     }, {});
 
-  // 根据中文填充对象
-  keys.filter(k => /^A\d+$/.test(k)).forEach((k) => {
+  // 默认excel第一列的每一项为hash计算的输入值（即中文值）
+  keys.filter(k => /^A\d+$/.test(k)).forEach(k => {
     if (k === 'A1') {
       return;
     }
     const i = k.match(/\d+/)[0];
     let { w } = firstSheet[k];
     w = w && w.trim();
+    // 作为key
     const hashValue = hash(w);
     langs.forEach(({ key, val }) => {
       const target = firstSheet[`${key}${i}`];
@@ -84,7 +98,7 @@ function analyzeExcel(source, resourcePath) {
 
   return {
     result,
-    langs: langs.map(l => l.val),
+    langs: langs.map(l => l.val)
   };
 }
 
