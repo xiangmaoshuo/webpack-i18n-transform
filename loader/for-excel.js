@@ -2,7 +2,7 @@ const xlsx = require('xlsx');
 const qs = require('querystring');
 const hash = require('hash-sum');
 const loaderUtils = require('loader-utils');
-const { name } = require('./package.json');
+const { name } = require('../package.json');
 
 const errorMsgPrefix = `[${name}][for-excel]: `;
 

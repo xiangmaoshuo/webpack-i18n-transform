@@ -130,9 +130,9 @@ module.exports = class TransformI18nWebpackPlugin {
               <span>${add.length || reduce.length ? '相同' : '总'}数量：${common.length}</span>
             </p>
             <ul>
-            ${add.map(str => `<li class="add"><pre>${str}</pre></li>`).join('')}
-            ${reduce.map(str => `<li class="reduce"><pre>${str}</pre></li>`).join('')}
-            ${common.map(str => `<li><pre>${str}</pre></li>`).join('')}
+            ${generateHtml(add, 'add')}
+            ${generateHtml(reduce, 'reduce')}
+            ${generateHtml(common, '')}
             </ul>
           </body>
         </html>
@@ -154,6 +154,20 @@ function setOptions(rules, options = {}) {
       ...options
     };
   });
+}
+
+// 转义html
+function escapeHTML(str) {
+  return str.replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+// 生成html
+function generateHtml(array, className) {
+  return array.map(str => `<li class="${className}"><pre>${escapeHTML(str)}</pre></li>`).join('');
 }
 
 function matcher(rules, regExp) {
