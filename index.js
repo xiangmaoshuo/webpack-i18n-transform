@@ -4,9 +4,106 @@ const { isExistsPath, isAbsolutePath, isDev } = require('./utils');
 const { name } = require('./package.json');
 
 const PLUGIN_NAME = 'TransformI18nWebpackPlugin';
+const MODULE_TYPE = `js-i18n/${PLUGIN_NAME}`;
 const getRegExp = str => new RegExp(`${name}(\\/|\\\\)loader(\\/|\\\\)for-${str}.js$`);
 
+const i18nModuleCache = new WeakMap();
+const i18nDependencyCache = new WeakMap();
 module.exports = class TransformI18nWebpackPlugin {
+  static getI18nModule(webpack) {
+    if (i18nModuleCache.has(webpack)) {
+      return i18nModuleCache.get(webpack);
+    }
+    class I18nModule extends webpack.Module {
+      constructor(dependency) {
+        super(MODULE_TYPE, dependency.context);
+        this.id = '';
+        this._identifier = dependency.identifier;
+        this._identifierIndex = dependency.identifierIndex;
+        this.content = dependency.content;
+        this.sourceMap = dependency.sourceMap;
+      } // no source() so webpack doesn't do add stuff to the bundle
+
+      size() {
+        return this.content.length;
+      }
+
+      identifier() {
+        return `i18n ${this._identifier} ${this._identifierIndex}`;
+      }
+
+      readableIdentifier(requestShortener) {
+        return `i18n ${requestShortener.shorten(this._identifier)}${this._identifierIndex ? ` (${this._identifierIndex})` : ''}`;
+      }
+
+      nameForCondition() {
+        const resource = this._identifier.split('!').pop();
+
+        const idx = resource.indexOf('?');
+
+        if (idx >= 0) {
+          return resource.substring(0, idx);
+        }
+
+        return resource;
+      }
+
+      updateCacheModule(module) {
+        this.content = module.content;
+        this.sourceMap = module.sourceMap;
+      }
+
+      needRebuild() {
+        return true;
+      }
+
+      build(options, compilation, resolver, fileSystem, callback) {
+        this.buildInfo = {};
+        this.buildMeta = {};
+        callback();
+      }
+
+      updateHash(hash) {
+        super.updateHash(hash);
+        hash.update(this.content);
+        hash.update(this.sourceMap ? JSON.stringify(this.sourceMap) : '');
+      }
+    }
+
+    i18nModuleCache.set(webpack, I18nModule);
+
+    return I18nModule;
+  }
+
+  static getI18nDependency(webpack) {
+    if (i18nDependencyCache.has(webpack)) {
+      return i18nDependencyCache.get(webpack);
+    }
+    class I18nDependency extends webpack.Dependency {
+      constructor({
+        identifier,
+        content,
+        sourceMap
+      }, context, identifierIndex) {
+        super();
+        this.identifier = identifier;
+        this.identifierIndex = identifierIndex;
+        this.content = content;
+        this.sourceMap = sourceMap;
+        this.context = context;
+      }
+
+      getResourceIdentifier() {
+        return `i18n-module-${this.identifier}-${this.identifierIndex}`;
+      }
+
+    }
+
+    i18nDependencyCache.set(webpack, I18nDependency);
+
+    return I18nDependency;
+  }
+
   constructor(opts) {
     const options = Object.assign({
       locale: null, // 默认excel第一列（中文）
@@ -18,9 +115,11 @@ module.exports = class TransformI18nWebpackPlugin {
       throw new Error('TransformI18nWebpackPlugin: i18nPath is required!');
     }
     this.options = options;
-    this.i18nList = new Map();
   }
   apply(compiler) {
+    const webpack = compiler.webpack
+      ? compiler.webpack
+      : require('webpack');
     const generateZhPath = isDev();
     const rawRules = compiler.options.module.rules;
     const { rules } = new RuleSet(rawRules);
@@ -37,18 +136,31 @@ module.exports = class TransformI18nWebpackPlugin {
 
     compiler.options.module.rules = rules;
 
+    const I18nModule = TransformI18nWebpackPlugin.getI18nModule(webpack);
+    const I18nDependency = TransformI18nWebpackPlugin.getI18nDependency(webpack);
+
     // 获取compilation
-    compiler.hooks.compilation.tap(PLUGIN_NAME, compilation => {
-      // 给ctx添加变量，以便loader能够获取它
-      compilation.hooks.normalModuleLoader.tap(
-        PLUGIN_NAME,
-        ctx => {
-          ctx.i18nList = this.i18nList;
-        },
-      );
+    compiler.hooks.thisCompilation.tap(PLUGIN_NAME, compilation => {
+      class I18nDependencyTemplate {
+        apply() {}
+      }
+      class I18nModuleFactory {
+        create({
+          dependencies: [dependency]
+        }, callback) {
+          callback(null, new I18nModule(dependency));
+        }
+      }
+
+      compilation.dependencyFactories.set(I18nDependency, new I18nModuleFactory());
+      compilation.dependencyTemplates.set(I18nDependency, new I18nDependencyTemplate());
+      compilation.hooks.finishModules.tapPromise(PLUGIN_NAME, async (modules) => {
+        debugger
+      });
     });
 
     if (generateZhPath) {
+      return;
       compiler.hooks.emit.tapPromise(PLUGIN_NAME, async compilation => {
         const { modules, assets } = compilation;
         const { i18nList } = this;

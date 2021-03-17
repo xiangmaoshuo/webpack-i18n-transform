@@ -63,7 +63,6 @@ module.exports = function loader(source) {
   let prifix = '';
   if (loaderOptions.generateZhPath) {
     const query = {
-      key: btoa(this.resource),
       val: btoa(JSON.stringify([...map.entries()]))
     };
     const loaderPath = this.loaders[this.loaderIndex].path.replace('for-js', 'for-generate-zh');
