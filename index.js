@@ -154,108 +154,95 @@ module.exports = class TransformI18nWebpackPlugin {
 
       compilation.dependencyFactories.set(I18nDependency, new I18nModuleFactory());
       compilation.dependencyTemplates.set(I18nDependency, new I18nDependencyTemplate());
-      compilation.hooks.finishModules.tapPromise(PLUGIN_NAME, async (modules) => {
-        debugger
+      compilation.hooks.normalModuleLoader.tap(
+        PLUGIN_NAME,
+        ctx => {
+          ctx._I18nDependency = I18nDependency;
+        }
+      );
+      compilation.hooks.finishModules.tapPromise(PLUGIN_NAME, async modules => {
+        const i18nModules = modules.filter(m => m.constructor === I18nModule);
+        const zhLocaleObj = i18nModules.reduce((pre, m) => ({ ...pre, ...(JSON.parse(m.content)) }), {});
+        if (generateZhPath) {
+          compiler.hooks.emit.tapPromise(PLUGIN_NAME, async compilation => {
+            const { modules, assets } = compilation;
+            let existI18nData = [];
+            // 从modules中寻找当前项目是否使用excel来配置翻译文件
+            const zhLocale = modules.find(m => /\.xlsx?\?lang=\w+?&default=1$/.test(m.id));
+            // 如果有，则将已翻译的中文和当前项目中收集到的中文进行diff
+            if (zhLocale) {
+              existI18nData = Object.values(eval(`(() => {${zhLocale._source._value.trim().replace(/export default result;$/, 'return result')}})()`));
+            }
+
+            // 初始化， 默认每次都是新增
+            const { add, reduce, common } = i18nDiff(Object.values(zhLocaleObj), existI18nData);
+
+            const i18nHtml = `
+            <!DOCTYPE html>
+            <html lang="en">
+              <head>
+                <meta charset="utf-8">
+                <meta http-equiv="X-UA-Compatible" content="IE=edge">
+                <meta name="viewport" content="width=device-width,initial-scale=1.0">
+                <title>i18n中文列表</title>
+              </head>
+              <body>
+                <style>
+                * {
+                    padding: 0;
+                    margin: 0;
+                  }
+                  ul {
+                    list-style: none;
+                  }
+                  li {
+                    border-bottom: 1px dashed #ccc;
+                    padding-left: 10px;
+                    line-height: 24px;
+                    font-size: 14px;
+                  }
+                  .add {
+                    background-color: #ecfdf0;
+                  }
+                  .reduce {
+                    background-color: #fbe9eb;
+                  }
+                  pre {
+                    font-family: Microsoft YaHei;
+                  }
+                  .total-bar {
+                    padding: 10px;
+                    background-color: #000;
+                    color: #fff;
+                    user-select: none;
+                  }
+                  .total-bar span {
+                    margin-left: 10px;
+                    margin-right: 10px;
+                  }
+                </style>
+                <p class="total-bar">
+                  <span>新增数量：${add.length}</span>
+                  <span>减少数量：${reduce.length}</span>
+                  <span>${add.length || reduce.length ? '相同' : '总'}数量：${common.length}</span>
+                </p>
+                <ul>
+                ${generateHtml(add, 'add')}
+                ${generateHtml(reduce, 'reduce')}
+                ${generateHtml(common, '')}
+                </ul>
+              </body>
+            </html>
+            `;
+
+            assets['i18n.html'] = {
+              source: () => i18nHtml,
+              size: () => i18nHtml.length
+            };
+          });
+        }
       });
     });
-
-    if (generateZhPath) {
-      return;
-      compiler.hooks.emit.tapPromise(PLUGIN_NAME, async compilation => {
-        const { modules, assets } = compilation;
-        const { i18nList } = this;
-        const resourceObj = modules.reduce((pre, { resource }) => {
-          if (resource) {
-            pre[resource] = true;
-          }
-          return pre;
-        }, {});
-        const effectiveResource = [...i18nList.keys()].filter(k => resourceObj[k]);
-
-        // 该项目中收集到的中文及其hash
-        const finalI18nList = Array.from(effectiveResource.reduce((map, k) => {
-          i18nList.get(k).forEach(([key, value]) => {
-            map.set(key, value);
-          });
-          return map;
-        }, new Map()).values());
-
-        let existI18nData = [];
-
-        // 从modules中寻找当前项目是否使用excel来配置翻译文件
-        const zhLocale = modules.find(m => /\.xlsx?\?lang=\w+?&default=1$/.test(m.id));
-        // 如果有，则将已翻译的中文和当前项目中收集到的中文进行diff
-        if (zhLocale) {
-          existI18nData = Object.values(eval(`(() => {${zhLocale._source._value.trim().replace(/export default result;$/, 'return result')}})()`));
-        }
-
-        // 初始化， 默认每次都是新增
-        const { add, reduce, common } = i18nDiff(finalI18nList, existI18nData);
-
-        const i18nHtml = `
-        <!DOCTYPE html>
-        <html lang="en">
-          <head>
-            <meta charset="utf-8">
-            <meta http-equiv="X-UA-Compatible" content="IE=edge">
-            <meta name="viewport" content="width=device-width,initial-scale=1.0">
-            <title>i18n中文列表</title>
-          </head>
-          <body>
-            <style>
-            * {
-                padding: 0;
-                margin: 0;
-              }
-              ul {
-                list-style: none;
-              }
-              li {
-                border-bottom: 1px dashed #ccc;
-                padding-left: 10px;
-                line-height: 24px;
-                font-size: 14px;
-              }
-              .add {
-                background-color: #ecfdf0;
-              }
-              .reduce {
-                background-color: #fbe9eb;
-              }
-              pre {
-                font-family: Microsoft YaHei;
-              }
-              .total-bar {
-                padding: 10px;
-                background-color: #000;
-                color: #fff;
-                user-select: none;
-              }
-              .total-bar span {
-                margin-left: 10px;
-                margin-right: 10px;
-              }
-            </style>
-            <p class="total-bar">
-              <span>新增数量：${add.length}</span>
-              <span>减少数量：${reduce.length}</span>
-              <span>${add.length || reduce.length ? '相同' : '总'}数量：${common.length}</span>
-            </p>
-            <ul>
-            ${generateHtml(add, 'add')}
-            ${generateHtml(reduce, 'reduce')}
-            ${generateHtml(common, '')}
-            </ul>
-          </body>
-        </html>
-        `;
-
-        assets['i18n.html'] = {
-          source: () => i18nHtml,
-          size: () => i18nHtml.length
-        };
-      });
-    }
   }
 };
 
