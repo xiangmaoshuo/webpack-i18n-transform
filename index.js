@@ -224,10 +224,13 @@ module.exports = class TransformI18nWebpackPlugin {
         const excelTranslatedZhLocale = {};
 
         const excelAnalyzeResult = excelModules.reduce((pre, m) => {
-          const { result, langs } = JSON.parse(m.content);
+          const { result, langs, locale } = JSON.parse(m.content);
+          const originalValue = { ...result };
+          // 收集翻译了的中文
           Object.assign(excelTranslatedZhLocale, result[langs[0]]);
-          result[langs[0]] = collectedZhLocale;
-          pre[m._identifier] = { result, langs };
+          // 将已翻译内容和当前页面中已收集的中文进行merge，已翻译内容优先
+          result[locale] = Object.assign({}, collectedZhLocale, result[locale]);
+          pre[m._identifier] = { result, langs, originalValue };
           return pre;
         }, {});
 

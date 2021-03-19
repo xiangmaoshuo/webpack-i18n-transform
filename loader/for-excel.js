@@ -10,23 +10,19 @@ const errorMsgPrefix = `[${name}][for-excel]: `;
 // 通过该loader可以将国际化loader转换成 { zh_cn: {...}, en-us: {...} }
 module.exports = function loader(source) {
   const exceResult = this._i18nExcelAnalyzeResult;
-  const { result, langs } = exceResult ? exceResult[this.resourcePath] : analyzeExcel(source);
+  const loaderOptions = loaderUtils.getOptions(this);
+  const locale = getLocale(loaderOptions.locale, langs); // 默认中文，也可自定义
+  const { result, langs, originalValue } = exceResult ? exceResult[this.resourcePath] : analyzeExcel(source);
 
   if (!exceResult) {
     const ExcelDependency = this._ExcelDependency;
     this._module.addDependency(new ExcelDependency({
       identifier: this.resourcePath,
-      content: JSON.stringify({ result, langs })
+      content: JSON.stringify({ result: originalValue || result, langs, locale })
     }, this.context, 0));
     return `// extracted by ${name} for-excel.js`;
   }
 
-  return render.call(this, result, langs);
-};
-
-function render(result, langs) {
-  const loaderOptions = loaderUtils.getOptions(this);
-  const locale = getLocale(loaderOptions.locale, langs); // 默认中文，也可自定义
   if (loaderOptions.async) {
     const query = qs.parse(this.resourceQuery.slice(1));
     if (query.lang) {
@@ -37,7 +33,8 @@ function render(result, langs) {
     }
     // 除了主语言，其他的语言都异步加载
     const asyncLangs = langs.filter(l => l !== locale); // 异步加载的语言
-    const getLangPath = l => loaderUtils.stringifyRequest(this, `${this.resourcePath}?lang=${l}`);
+    const loaderPath = this.loaders[this.loaderIndex].path;
+    const getLangPath = l => loaderUtils.stringifyRequest(this, `!!${loaderPath}!${this.resourcePath}?lang=${l}`);
     return `
       import result from ${getLangPath(locale)};
       var locale = '${locale}';
@@ -56,7 +53,7 @@ function render(result, langs) {
       export { locale };
     `;
   }
-}
+};
 
 // 确定默认locale
 function getLocale(locale, langs) {
