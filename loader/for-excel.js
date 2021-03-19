@@ -6,41 +6,57 @@ const { name } = require('../package.json');
 
 const errorMsgPrefix = `[${name}][for-excel]: `;
 
-const excelMap = {};
-
 // 经过实践，使用excel来维护国际化文本是比较好的实践方案
 // 通过该loader可以将国际化loader转换成 { zh_cn: {...}, en-us: {...} }
 module.exports = function loader(source) {
-  const { resourcePath } = this;
-  const query = qs.parse(this.resourceQuery.slice(1));
-  // 这个输出的结构也不要随便改，插件的emit事件中会去使用该result
-  if (query.lang) {
+  const exceResult = this._i18nExcelAnalyzeResult;
+  const { result, langs } = exceResult ? exceResult[this.resourcePath] : analyzeExcel(source);
+
+  if (!exceResult) {
+    const ExcelDependency = this._ExcelDependency;
+    this._module.addDependency(new ExcelDependency({
+      identifier: this.resourcePath,
+      content: JSON.stringify({ result, langs })
+    }, this.context, 0));
+    return `// extracted by ${name} for-excel.js`;
+  }
+
+  return render.call(this, result, langs);
+};
+
+function render(result, langs) {
+  const loaderOptions = loaderUtils.getOptions(this);
+  const locale = getLocale(loaderOptions.locale, langs); // 默认中文，也可自定义
+  if (loaderOptions.async) {
+    const query = qs.parse(this.resourceQuery.slice(1));
+    if (query.lang) {
+      return `
+        var result = ${JSON.stringify(result[query.lang])};
+        export default result;
+      `;
+    }
+    // 除了主语言，其他的语言都异步加载
+    const asyncLangs = langs.filter(l => l !== locale); // 异步加载的语言
+    const getLangPath = l => loaderUtils.stringifyRequest(this, `${this.resourcePath}?lang=${l}`);
     return `
-      var result = ${JSON.stringify(excelMap[resourcePath][query.lang])};
-      export default result;
+      import result from ${getLangPath(locale)};
+      var locale = '${locale}';
+      var messages = { '${locale}': result };
+      var asyncLangs = {
+        ${asyncLangs.map(l => `${JSON.stringify(l)}: function() { return import(${getLangPath(l)}); }`).join(',')}
+      };
+      export default messages;
+      export { locale, asyncLangs };
+    `;
+  } else {
+    return `
+      var locale = '${locale}';
+      var messages = ${JSON.stringify(result)};
+      export default messages;
+      export { locale };
     `;
   }
-  const { langs } = analyzeExcel(source, resourcePath);
-  const loaderOptions = loaderUtils.getOptions(this);
-
-  const locale = getLocale(loaderOptions.locale, langs); // 默认中文，也可自定义
-
-  // 除了主语言，其他的语言都异步加载
-  const asyncLangs = langs.filter(l => l !== locale); // 异步加载的语言
-  // 该方法不要随便改，在插件的emit方法中会使用该path去匹配module
-  const getLangPath = l => loaderUtils.stringifyRequest(this, `${resourcePath}?lang=${l}${l === locale ? '&default=1': ''}`);
-
-  return `
-    import result from ${getLangPath(locale)};
-    var locale = '${locale}';
-    var messages = { '${locale}': result };
-    var asyncLangs = {
-      ${asyncLangs.map(l => `${JSON.stringify(l)}: function() { return import(${getLangPath(l)}); }`).join(',')}
-    };
-    export default messages;
-    export { locale, asyncLangs };
-  `;
-};
+}
 
 // 确定默认locale
 function getLocale(locale, langs) {
@@ -50,7 +66,7 @@ function getLocale(locale, langs) {
 }
 
 // 解析excel
-function analyzeExcel(source, resourcePath) {
+function analyzeExcel(source) {
   const workBook = xlsx.read(source);
   const { SheetNames, Sheets } = workBook;
   const firstSheet = Sheets[SheetNames[0]];
@@ -93,8 +109,6 @@ function analyzeExcel(source, resourcePath) {
       }
     });
   });
-
-  excelMap[resourcePath] = result;
 
   return {
     result,

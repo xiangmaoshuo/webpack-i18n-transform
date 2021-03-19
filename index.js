@@ -1,72 +1,100 @@
 const path = require('path');
 const RuleSet = require('webpack/lib/RuleSet');
+const Module = require('webpack/lib/Module');
+const Dependency = require('webpack/lib/Dependency');
 const { isExistsPath, isAbsolutePath, isDev } = require('./utils');
 const { name } = require('./package.json');
 
 const PLUGIN_NAME = 'TransformI18nWebpackPlugin';
-const MODULE_TYPE = `js-i18n/${PLUGIN_NAME}`;
+const JS_MODULE_TYPE = `js-i18n/${PLUGIN_NAME}`;
+const EXCEL_MODULE_TYPE = `excel-i18n/${PLUGIN_NAME}`;
+
 const getRegExp = str => new RegExp(`${name}(\\/|\\\\)loader(\\/|\\\\)for-${str}.js$`);
 
 const i18nModuleCache = new WeakMap();
 const i18nDependencyCache = new WeakMap();
+const excelModuleCache = new WeakMap();
+const excelDependencyCache = new WeakMap();
+
+class I18nBaseModule extends Module {
+  constructor(type, dependency) {
+    super(type, dependency.context);
+    this.id = '';
+    this._identifier = dependency.identifier;
+    this._identifierIndex = dependency.identifierIndex;
+    this.content = dependency.content;
+    this.sourceMap = dependency.sourceMap;
+  } // no source() so webpack doesn't do add stuff to the bundle
+
+  size() {
+    return this.content.length;
+  }
+
+  identifier() {
+    return `${this.type} ${this._identifier} ${this._identifierIndex}`;
+  }
+
+  readableIdentifier(requestShortener) {
+    return `${this.type} ${requestShortener.shorten(this._identifier)}${this._identifierIndex ? ` (${this._identifierIndex})` : ''}`;
+  }
+
+  nameForCondition() {
+    const resource = this._identifier.split('!').pop();
+
+    const idx = resource.indexOf('?');
+
+    if (idx >= 0) {
+      return resource.substring(0, idx);
+    }
+
+    return resource;
+  }
+
+  updateCacheModule(module) {
+    this.content = module.content;
+    this.sourceMap = module.sourceMap;
+  }
+
+  needRebuild() {
+    return true;
+  }
+
+  build(options, compilation, resolver, fileSystem, callback) {
+    this.buildInfo = {};
+    this.buildMeta = {};
+    callback();
+  }
+
+  updateHash(hash) {
+    super.updateHash(hash);
+    hash.update(this.content);
+    hash.update(this.sourceMap ? JSON.stringify(this.sourceMap) : '');
+  }
+}
+
+class I18nBaseDependency extends Dependency {
+  constructor({
+    identifier,
+    content,
+    sourceMap
+  }, context, identifierIndex) {
+    super();
+    this.identifier = identifier;
+    this.identifierIndex = identifierIndex;
+    this.content = content;
+    this.sourceMap = sourceMap;
+    this.context = context;
+  }
+}
+
 module.exports = class TransformI18nWebpackPlugin {
   static getI18nModule(webpack) {
     if (i18nModuleCache.has(webpack)) {
       return i18nModuleCache.get(webpack);
     }
-    class I18nModule extends webpack.Module {
+    class I18nModule extends I18nBaseModule {
       constructor(dependency) {
-        super(MODULE_TYPE, dependency.context);
-        this.id = '';
-        this._identifier = dependency.identifier;
-        this._identifierIndex = dependency.identifierIndex;
-        this.content = dependency.content;
-        this.sourceMap = dependency.sourceMap;
-      } // no source() so webpack doesn't do add stuff to the bundle
-
-      size() {
-        return this.content.length;
-      }
-
-      identifier() {
-        return `i18n ${this._identifier} ${this._identifierIndex}`;
-      }
-
-      readableIdentifier(requestShortener) {
-        return `i18n ${requestShortener.shorten(this._identifier)}${this._identifierIndex ? ` (${this._identifierIndex})` : ''}`;
-      }
-
-      nameForCondition() {
-        const resource = this._identifier.split('!').pop();
-
-        const idx = resource.indexOf('?');
-
-        if (idx >= 0) {
-          return resource.substring(0, idx);
-        }
-
-        return resource;
-      }
-
-      updateCacheModule(module) {
-        this.content = module.content;
-        this.sourceMap = module.sourceMap;
-      }
-
-      needRebuild() {
-        return true;
-      }
-
-      build(options, compilation, resolver, fileSystem, callback) {
-        this.buildInfo = {};
-        this.buildMeta = {};
-        callback();
-      }
-
-      updateHash(hash) {
-        super.updateHash(hash);
-        hash.update(this.content);
-        hash.update(this.sourceMap ? JSON.stringify(this.sourceMap) : '');
+        super(JS_MODULE_TYPE, dependency);
       }
     }
 
@@ -79,24 +107,10 @@ module.exports = class TransformI18nWebpackPlugin {
     if (i18nDependencyCache.has(webpack)) {
       return i18nDependencyCache.get(webpack);
     }
-    class I18nDependency extends webpack.Dependency {
-      constructor({
-        identifier,
-        content,
-        sourceMap
-      }, context, identifierIndex) {
-        super();
-        this.identifier = identifier;
-        this.identifierIndex = identifierIndex;
-        this.content = content;
-        this.sourceMap = sourceMap;
-        this.context = context;
-      }
-
+    class I18nDependency extends I18nBaseDependency {
       getResourceIdentifier() {
-        return `i18n-module-${this.identifier}-${this.identifierIndex}`;
+        return `js-i18n-module-${this.identifier}-${this.identifierIndex}`;
       }
-
     }
 
     i18nDependencyCache.set(webpack, I18nDependency);
@@ -104,9 +118,41 @@ module.exports = class TransformI18nWebpackPlugin {
     return I18nDependency;
   }
 
+  static getExcelModule(webpack) {
+    if (excelModuleCache.has(webpack)) {
+      return excelModuleCache.get(webpack);
+    }
+
+    class ExcelModule extends I18nBaseModule {
+      constructor(dependency) {
+        super(EXCEL_MODULE_TYPE, dependency);
+      }
+    }
+
+    excelModuleCache.set(webpack, ExcelModule);
+
+    return ExcelModule;
+  }
+
+  static getExcelDependency(webpack) {
+    if (excelDependencyCache.has(webpack)) {
+      return excelDependencyCache.get(webpack);
+    }
+    class ExcelDependency extends I18nBaseDependency {
+      getResourceIdentifier() {
+        return `excel-i18n-module-${this.identifier}-${this.identifierIndex}`;
+      }
+    }
+
+    excelDependencyCache.set(webpack, ExcelDependency);
+
+    return ExcelDependency;
+  }
+
   constructor(opts) {
     const options = Object.assign({
       locale: null, // 默认excel第一列（中文）
+      async: true, // 异步加载语言文件
       i18nPath: null, // required
       parseObjectProperty: false,
       parseBinaryExpression: false
@@ -123,7 +169,7 @@ module.exports = class TransformI18nWebpackPlugin {
     const generateZhPath = isDev();
     const rawRules = compiler.options.module.rules;
     const { rules } = new RuleSet(rawRules);
-    const { i18nPath, locale, ...remainOptions } = this.options;
+    const { i18nPath, locale, async, ...remainOptions } = this.options;
 
     const extraOptions = {
       generateZhPath,
@@ -132,50 +178,88 @@ module.exports = class TransformI18nWebpackPlugin {
 
     setOptions(matcher(rules, getRegExp('js')), Object.assign(remainOptions, extraOptions));
     setOptions(matcher(rules, getRegExp('vue')), extraOptions);
-    setOptions(matcher(rules, getRegExp('excel')), { locale });
+    setOptions(matcher(rules, getRegExp('excel')), { locale, async });
 
     compiler.options.module.rules = rules;
 
     const I18nModule = TransformI18nWebpackPlugin.getI18nModule(webpack);
     const I18nDependency = TransformI18nWebpackPlugin.getI18nDependency(webpack);
+    const ExcelModule = TransformI18nWebpackPlugin.getExcelModule(webpack);
+    const ExcelDependency = TransformI18nWebpackPlugin.getExcelDependency(webpack);
 
     // 获取compilation
     compiler.hooks.thisCompilation.tap(PLUGIN_NAME, compilation => {
-      class I18nDependencyTemplate {
+      class I18nCommonDependencyTemplate {
         apply() {}
       }
-      class I18nModuleFactory {
+      class I18nCommonModuleFactory {
+        constructor(Module) {
+          this._Module = Module;
+        }
         create({
           dependencies: [dependency]
         }, callback) {
-          callback(null, new I18nModule(dependency));
+          callback(null, new this._Module(dependency));
         }
       }
 
-      compilation.dependencyFactories.set(I18nDependency, new I18nModuleFactory());
-      compilation.dependencyTemplates.set(I18nDependency, new I18nDependencyTemplate());
+      compilation.dependencyFactories.set(I18nDependency, new I18nCommonModuleFactory(I18nModule));
+      compilation.dependencyTemplates.set(I18nDependency, new I18nCommonDependencyTemplate());
+      compilation.dependencyFactories.set(ExcelDependency, new I18nCommonModuleFactory(ExcelModule));
+      compilation.dependencyTemplates.set(ExcelDependency, new I18nCommonDependencyTemplate());
       compilation.hooks.normalModuleLoader.tap(
         PLUGIN_NAME,
         ctx => {
           ctx._I18nDependency = I18nDependency;
+          ctx._ExcelDependency = ExcelDependency;
         }
       );
       compilation.hooks.finishModules.tapPromise(PLUGIN_NAME, async modules => {
         const i18nModules = modules.filter(m => m.constructor === I18nModule);
-        const zhLocaleObj = i18nModules.reduce((pre, m) => ({ ...pre, ...(JSON.parse(m.content)) }), {});
+        const excelModules = modules.filter(m => m.constructor === ExcelModule);
+        const collectedZhLocale = i18nModules.reduce((pre, m) => {
+          return { ...pre, ...(JSON.parse(m.content)) };
+        }, {});
+
+        const excelTranslatedZhLocale = {};
+
+        const excelAnalyzeResult = excelModules.reduce((pre, m) => {
+          const { result, langs } = JSON.parse(m.content);
+          Object.assign(excelTranslatedZhLocale, result[langs[0]]);
+          result[langs[0]] = collectedZhLocale;
+          pre[m._identifier] = { result, langs };
+          return pre;
+        }, {});
+
+        const normalModuleLoaderCallback = ctx => {
+          ctx._i18nExcelAnalyzeResult = excelAnalyzeResult;
+        };
+        compilation.hooks.normalModuleLoader.tap(`${PLUGIN_NAME} finishModules`, normalModuleLoaderCallback);
+
+        const originExcelModules = modules.filter(m => m.dependencies.some(d => d.constructor === ExcelDependency));
+
+        const promises = originExcelModules.map(eModule => {
+          return new Promise((resolve, reject) => {
+            try {
+              compilation.rebuildModule(eModule, resolve);
+            } catch(err) {
+              reject(err);
+            }
+          });
+        });
+
+        await Promise.all(promises);
+
+        compilation.hooks.normalModuleLoader.taps = compilation.hooks.normalModuleLoader.taps
+          .filter(tap => tap.fn !== normalModuleLoaderCallback);
+
         if (generateZhPath) {
           compiler.hooks.emit.tapPromise(PLUGIN_NAME, async compilation => {
-            const { modules, assets } = compilation;
-            let existI18nData = [];
-            // 从modules中寻找当前项目是否使用excel来配置翻译文件
-            const zhLocale = modules.find(m => /\.xlsx?\?lang=\w+?&default=1$/.test(m.id));
-            // 如果有，则将已翻译的中文和当前项目中收集到的中文进行diff
-            if (zhLocale) {
-              existI18nData = Object.values(eval(`(() => {${zhLocale._source._value.trim().replace(/export default result;$/, 'return result')}})()`));
-            }
-
-            // 初始化， 默认每次都是新增
-            const { add, reduce, common } = i18nDiff(Object.values(zhLocaleObj), existI18nData);
+            const { assets } = compilation;
+            const { add, reduce, common } = i18nDiff(
+              Object.values(collectedZhLocale),
+              Object.values(excelTranslatedZhLocale)
+            );
 
             const i18nHtml = `
             <!DOCTYPE html>

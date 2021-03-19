@@ -18,5 +18,5 @@ module.exports.pitch = function pitch() {
   };
   const I18nDependency = this._I18nDependency;
   this._module.addDependency(new I18nDependency(opts, this.context, 0));
-  return `// extracted by ${name}`;
+  return `// extracted by ${name} for-generate-zh.js`;
 };
