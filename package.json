@@ -1,6 +1,6 @@
 {
   "name": "webpack-i18n-transform",
-  "version": "0.0.7",
+  "version": "1.0.0",
   "description": "a webpack plugin that can convert chinese to i18n",
   "main": "index.js",
   "scripts": {

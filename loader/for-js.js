@@ -66,7 +66,7 @@ module.exports = function loader(source) {
       val: btoa(JSON.stringify([...map.entries()]))
     };
     const loaderPath = this.loaders[this.loaderIndex].path.replace('for-js', 'for-generate-zh');
-    prifix = `import ${loaderUtils.stringifyRequest(this, `!!${loaderPath}?${JSON.stringify(query)}!${this.resourcePath}`)};`;
+    prifix = `import ${loaderUtils.stringifyRequest(this, `!!${loaderPath}?${JSON.stringify(query)}!${this.resource}`)};`;
   }
 
   return `

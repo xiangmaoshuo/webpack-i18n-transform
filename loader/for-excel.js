@@ -9,17 +9,21 @@ const errorMsgPrefix = `[${name}][for-excel]: `;
 // 经过实践，使用excel来维护国际化文本是比较好的实践方案
 // 通过该loader可以将国际化loader转换成 { zh_cn: {...}, en-us: {...} }
 module.exports = function loader(source) {
-  const exceResult = this._i18nExcelAnalyzeResult;
+  const excelResult = this._i18nExcelAnalyzeResult;
   const loaderOptions = loaderUtils.getOptions(this);
+  const query = qs.parse(this.resourceQuery.slice(1));
+  const { result, langs, originalValue } = excelResult ? excelResult[this.resourcePath] : analyzeExcel(source);
   const locale = getLocale(loaderOptions.locale, langs); // 默认中文，也可自定义
-  const { result, langs, originalValue } = exceResult ? exceResult[this.resourcePath] : analyzeExcel(source);
 
-  if (!exceResult) {
+  if (!loaderOptions.async || !query.lang) {
     const ExcelDependency = this._ExcelDependency;
     this._module.addDependency(new ExcelDependency({
       identifier: this.resourcePath,
       content: JSON.stringify({ result: originalValue || result, langs, locale })
     }, this.context, 0));
+  }
+
+  if (!excelResult) {
     return `// extracted by ${name} for-excel.js`;
   }
 
@@ -33,8 +37,7 @@ module.exports = function loader(source) {
     }
     // 除了主语言，其他的语言都异步加载
     const asyncLangs = langs.filter(l => l !== locale); // 异步加载的语言
-    const loaderPath = this.loaders[this.loaderIndex].path;
-    const getLangPath = l => loaderUtils.stringifyRequest(this, `!!${loaderPath}!${this.resourcePath}?lang=${l}`);
+    const getLangPath = l => loaderUtils.stringifyRequest(this, `${this.resourcePath}?lang=${l}`);
     return `
       import result from ${getLangPath(locale)};
       var locale = '${locale}';
