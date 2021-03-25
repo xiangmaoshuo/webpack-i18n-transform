@@ -187,22 +187,25 @@ module.exports = class TransformI18nWebpackPlugin {
     const ExcelModule = TransformI18nWebpackPlugin.getExcelModule(webpack);
     const ExcelDependency = TransformI18nWebpackPlugin.getExcelDependency(webpack);
 
+    class I18nCommonDependencyTemplate {
+      apply() {}
+    }
+    class I18nCommonModuleFactory {
+      constructor(Module) {
+        this._Module = Module;
+      }
+      create({
+        dependencies: [dependency]
+      }, callback) {
+        callback(null, new this._Module(dependency));
+      }
+    }
+
+    let collectedZhLocale = {};
+    let excelTranslatedZhLocale = {};
+
     // 获取compilation
     compiler.hooks.thisCompilation.tap(PLUGIN_NAME, compilation => {
-      class I18nCommonDependencyTemplate {
-        apply() {}
-      }
-      class I18nCommonModuleFactory {
-        constructor(Module) {
-          this._Module = Module;
-        }
-        create({
-          dependencies: [dependency]
-        }, callback) {
-          callback(null, new this._Module(dependency));
-        }
-      }
-
       compilation.dependencyFactories.set(I18nDependency, new I18nCommonModuleFactory(I18nModule));
       compilation.dependencyTemplates.set(I18nDependency, new I18nCommonDependencyTemplate());
       compilation.dependencyFactories.set(ExcelDependency, new I18nCommonModuleFactory(ExcelModule));
@@ -214,14 +217,14 @@ module.exports = class TransformI18nWebpackPlugin {
           ctx._ExcelDependency = ExcelDependency;
         }
       );
-      compilation.hooks.finishModules.tapPromise(PLUGIN_NAME, async modules => {
+      compilation.hooks.finishModules.tapPromise(PLUGIN_NAME, modules => {
         const i18nModules = modules.filter(m => m.constructor === I18nModule);
         const excelModules = modules.filter(m => m.constructor === ExcelModule);
-        const collectedZhLocale = i18nModules.reduce((pre, m) => {
+        collectedZhLocale = i18nModules.reduce((pre, m) => {
           return { ...pre, ...(JSON.parse(m.content)) };
         }, {});
 
-        const excelTranslatedZhLocale = {};
+        excelTranslatedZhLocale = {};
 
         const excelAnalyzeResult = excelModules.reduce((pre, m) => {
           const { result, langs, locale } = JSON.parse(m.content);
@@ -234,10 +237,9 @@ module.exports = class TransformI18nWebpackPlugin {
           return pre;
         }, {});
 
-        const normalModuleLoaderCallback = ctx => {
+        compilation.hooks.normalModuleLoader.tap(`${PLUGIN_NAME} finishModules`, ctx => {
           ctx._i18nExcelAnalyzeResult = excelAnalyzeResult;
-        };
-        compilation.hooks.normalModuleLoader.tap(`${PLUGIN_NAME} finishModules`, normalModuleLoaderCallback);
+        });
 
         const originExcelModules = modules.filter(m => m.dependencies.some(d => d.constructor === ExcelDependency));
 
@@ -251,85 +253,81 @@ module.exports = class TransformI18nWebpackPlugin {
           });
         });
 
-        await Promise.all(promises);
-
-        compilation.hooks.normalModuleLoader.taps = compilation.hooks.normalModuleLoader.taps
-          .filter(tap => tap.fn !== normalModuleLoaderCallback);
-
-        if (generateZhPath) {
-          compiler.hooks.emit.tapPromise(PLUGIN_NAME, async compilation => {
-            const { assets } = compilation;
-            const { add, reduce, common } = i18nDiff(
-              Object.values(collectedZhLocale),
-              Object.values(excelTranslatedZhLocale)
-            );
-
-            const i18nHtml = `
-            <!DOCTYPE html>
-            <html lang="en">
-              <head>
-                <meta charset="utf-8">
-                <meta http-equiv="X-UA-Compatible" content="IE=edge">
-                <meta name="viewport" content="width=device-width,initial-scale=1.0">
-                <title>i18n中文列表</title>
-              </head>
-              <body>
-                <style>
-                * {
-                    padding: 0;
-                    margin: 0;
-                  }
-                  ul {
-                    list-style: none;
-                  }
-                  li {
-                    border-bottom: 1px dashed #ccc;
-                    padding-left: 10px;
-                    line-height: 24px;
-                    font-size: 14px;
-                  }
-                  .add {
-                    background-color: #ecfdf0;
-                  }
-                  .reduce {
-                    background-color: #fbe9eb;
-                  }
-                  pre {
-                    font-family: Microsoft YaHei;
-                  }
-                  .total-bar {
-                    padding: 10px;
-                    background-color: #000;
-                    color: #fff;
-                    user-select: none;
-                  }
-                  .total-bar span {
-                    margin-left: 10px;
-                    margin-right: 10px;
-                  }
-                </style>
-                <p class="total-bar">
-                  <span>新增数量：${add.length}</span>
-                  <span>减少数量：${reduce.length}</span>
-                  <span>${add.length || reduce.length ? '相同' : '总'}数量：${common.length}</span>
-                </p>
-                <ul>
-                ${generateHtml(add, 'add')}
-                ${generateHtml(reduce, 'reduce')}
-                ${generateHtml(common, '')}
-                </ul>
-              </body>
-            </html>
-            `;
-
-            assets['i18n.html'] = {
-              source: () => i18nHtml,
-              size: () => i18nHtml.length
-            };
-          });
-        }
+        return Promise.all(promises);
       });
     });
+    if (generateZhPath) {
+      compiler.hooks.emit.tapPromise(PLUGIN_NAME, async compilation => {
+        const { assets } = compilation;
+        const { add, reduce, common } = i18nDiff(
+          Object.values(collectedZhLocale),
+          Object.values(excelTranslatedZhLocale)
+        );
+
+        const i18nHtml = `
+        <!DOCTYPE html>
+        <html lang="en">
+          <head>
+            <meta charset="utf-8">
+            <meta http-equiv="X-UA-Compatible" content="IE=edge">
+            <meta name="viewport" content="width=device-width,initial-scale=1.0">
+            <title>i18n中文列表</title>
+          </head>
+          <body>
+            <style>
+            * {
+                padding: 0;
+                margin: 0;
+              }
+              ul {
+                list-style: none;
+              }
+              li {
+                border-bottom: 1px dashed #ccc;
+                padding-left: 10px;
+                line-height: 24px;
+                font-size: 14px;
+              }
+              .add {
+                background-color: #ecfdf0;
+              }
+              .reduce {
+                background-color: #fbe9eb;
+              }
+              pre {
+                font-family: Microsoft YaHei;
+              }
+              .total-bar {
+                padding: 10px;
+                background-color: #000;
+                color: #fff;
+                user-select: none;
+              }
+              .total-bar span {
+                margin-left: 10px;
+                margin-right: 10px;
+              }
+            </style>
+            <p class="total-bar">
+              <span>新增数量：${add.length}</span>
+              <span>减少数量：${reduce.length}</span>
+              <span>${add.length || reduce.length ? '相同' : '总'}数量：${common.length}</span>
+            </p>
+            <ul>
+            ${generateHtml(add, 'add')}
+            ${generateHtml(reduce, 'reduce')}
+            ${generateHtml(common, '')}
+            </ul>
+          </body>
+        </html>
+        `;
+
+        assets['i18n.html'] = {
+          source: () => i18nHtml,
+          size: () => i18nHtml.length
+        };
+      });
+    }
   }
 };
 
