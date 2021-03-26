@@ -37,7 +37,8 @@ module.exports = function loader(source) {
     }
     // 除了主语言，其他的语言都异步加载
     const asyncLangs = langs.filter(l => l !== locale); // 异步加载的语言
-    const getLangPath = l => loaderUtils.stringifyRequest(this, `${this.resourcePath}?lang=${l}`);
+    const importHash = l => hash(result[l]);
+    const getLangPath = l => loaderUtils.stringifyRequest(this, `${this.resourcePath}?lang=${l}&hash=${importHash(l)}`);
     return `
       import result from ${getLangPath(locale)};
       var locale = '${locale}';
