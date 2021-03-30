@@ -203,6 +203,7 @@ module.exports = class TransformI18nWebpackPlugin {
 
     let collectedZhLocale = {};
     let excelTranslatedZhLocale = {};
+    let excelInfo = [];
 
     // 获取compilation
     compiler.hooks.thisCompilation.tap(PLUGIN_NAME, compilation => {
@@ -236,6 +237,16 @@ module.exports = class TransformI18nWebpackPlugin {
           pre[m._identifier] = { result, langs, originalValue };
           return pre;
         }, {});
+
+        excelInfo = Object.keys(excelAnalyzeResult).reduce((pre, path) => {
+          const { langs, originalValue } = excelAnalyzeResult[path];
+          const array = langs.map(l => Object.keys(originalValue[l]).length);
+          const first = array[0];
+          if (array.some(l => l !== first)) {
+            pre.push(path);
+          }
+          return pre;
+        }, []);
 
         compilation.hooks.normalModuleLoader.tap(`${PLUGIN_NAME} finishModules`, ctx => {
           ctx._i18nExcelAnalyzeResult = excelAnalyzeResult;
@@ -307,12 +318,19 @@ module.exports = class TransformI18nWebpackPlugin {
                 margin-left: 10px;
                 margin-right: 10px;
               }
+              .warning-bar {
+                padding: 10px;
+                background-color: #fa0;
+                color: #fff;
+                user-select: none;
+              }
             </style>
             <p class="total-bar">
               <span>新增数量：${add.length}</span>
               <span>减少数量：${reduce.length}</span>
               <span>${add.length || reduce.length ? '相同' : '总'}数量：${common.length}</span>
             </p>
+            ${getWarningMsg(excelInfo)}
             <ul>
             ${generateHtml(add, 'add')}
             ${generateHtml(reduce, 'reduce')}
@@ -352,6 +370,13 @@ function escapeHTML(str) {
 // 生成html
 function generateHtml(array, className) {
   return array.map(str => `<li class="${className}"><pre>${escapeHTML(str)}</pre></li>`).join('');
+}
+
+function getWarningMsg(array) {
+  if (!array.length) {
+    return '';
+  }
+  return array.map(p => `<p class="warning-bar">请注意: ${p} 翻译条数不相等!</p>`).join('\n');
 }
 
 function matcher(rules, regExp) {
