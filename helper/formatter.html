@@ -12,14 +12,20 @@
       function choose(type) {
         chooseType = type;
       }
+      function escapeHTML(str) {
+        return str.replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&apos;');
+      }
       function parse () {
-        console.log(123);
         let array = document.querySelector('#textarea').value.split(/\n+/);
         if (chooseType !== 'original') {
           const k = chooseType === 'upper' ? 'toUpperCase' : 'toLowerCase';
           array = array.map(str => `${str.slice(0, 1)[k]()}${str.slice(1)}`);
         }
-        document.querySelector('#pre').innerHTML = array.join('\n');
+        document.querySelector('#pre').innerHTML = escapeHTML(array.join('\n'));
       }
     </script>
     <div id="app"></div>
