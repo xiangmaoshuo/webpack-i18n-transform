@@ -53,8 +53,9 @@ module.exports = function loader(source) {
     return `
       var locale = '${locale}';
       var messages = ${JSON.stringify(result)};
+      var asyncLangs = {};
       export default messages;
-      export { locale };
+      export { locale, asyncLangs };
     `;
   }
 };
