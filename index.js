@@ -166,10 +166,18 @@ module.exports = class TransformI18nWebpackPlugin {
     const webpack = compiler.webpack
       ? compiler.webpack
       : require('webpack');
-    const generateZhPath = isDev();
+    const isDevEnv = isDev();
+    const generateZhPath = isDevEnv;
     const rawRules = compiler.options.module.rules;
     const { rules } = new RuleSet(rawRules);
     const { i18nPath, locale, async, ...remainOptions } = this.options;
+
+    if (!Object.hasOwnProperty.call(remainOptions, 'hmr')) {
+      // 开发环境下引用了for-excel的文件添加hmr
+      // 由于其目标是普通的js，这里的回调函数内容不好确定，所以默认指定一个方法名
+      // 开发者可以通过配置项options.hmr进行修改
+      remainOptions.hmr = isDevEnv ? 'initLocaleMessage' : false;
+    }
 
     const extraOptions = {
       generateZhPath,

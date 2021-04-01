@@ -8,13 +8,15 @@ const generate = require('@babel/generator').default;
 
 const { isExclude, btoa } = require('../utils');
 
-const traversePath = path.resolve(__dirname, '../babel-traverse');
-const traverseOptions = fs.readdirSync(traversePath, 'utf-8')
+const getTraverseOptions = traversePath => {
+  return fs.readdirSync(traversePath, 'utf-8')
   .filter(p => /\.js$/.test(p))
   .reduce((pre, p) => {
     pre[p.replace(/\.js$/, '')] = require(path.resolve(traversePath, p));
     return pre;
   }, {});
+};
+const traverseOptions = getTraverseOptions(path.resolve(__dirname, '../babel-traverse'));
 
 // 有这个标记的代码块整个块都不会被i18n处理
 const disableI18nRegExp = /transform-i18n-disable/;
@@ -29,6 +31,7 @@ module.exports = function loader(source) {
         i18nPath,
         exclude = excludeRegExp,
         disableRegExp = disableI18nRegExp,
+        hmr,
         parseObjectProperty,
         parseBinaryExpression
       }
@@ -36,9 +39,10 @@ module.exports = function loader(source) {
   const loaderOptions = loaderUtils.getOptions(this);
   const exclude = loaderOptions.exclude || excludeRegExp;
   const disableRegExp = loaderOptions.disableRegExp || disableI18nRegExp;
+  const hmr = loaderOptions.hmr;
 
   if (isExclude(this.resource, exclude) || disableRegExp.test(source)) {
-    return source;
+    return getHmrCode(source, hmr);
   }
 
   const isVue = /\.vue$/.test(this.resourcePath);
@@ -46,7 +50,7 @@ module.exports = function loader(source) {
 
   // vue文件也可以将transform-i18n-disable写在template或者script标签上
   if (isVue && disableRegExp.test(this.resourceQuery)) {
-    return source;
+    return getHmrCode(source, hmr);
   }
 
   const map = new Map();
@@ -58,7 +62,7 @@ module.exports = function loader(source) {
   };
   traverse(ast, traverseOptions, null, options);
   const { code } = generate(ast, {}, source);
-  if (!map.size) { return code; }
+  if (!map.size) { return getHmrCode(code, hmr, ast); }
 
   let prifix = '';
   if (loaderOptions.generateZhPath) {
@@ -69,11 +73,13 @@ module.exports = function loader(source) {
     prifix = `import ${loaderUtils.stringifyRequest(this, `!!${loaderPath}?${JSON.stringify(query)}!${this.resource}`)};`;
   }
 
-  return `
+  const result = `
     ${prifix}
     import { $t } from ${loaderUtils.stringifyRequest(this, loaderOptions.i18nPath)};
     ${code}
   `;
+
+  return getHmrCode(result, hmr, ast);
 };
 
 function getCallback(map) {
@@ -82,4 +88,25 @@ function getCallback(map) {
       map.set(hash, value);
     }
   };
+}
+
+function getHmrCode(source, hmr, ast) {
+  if (!hmr || (typeof hmr !== 'string')) {
+    return source;
+  }
+  const excelPathList = []; // for hmr
+  const traverseHmrOptions = getTraverseOptions(path.resolve(__dirname, '../babel-traverse/hmr'));
+  const _ast = ast || parse(source, { sourceType: 'module' });
+  traverse(_ast, traverseHmrOptions, null, {
+    addExcelPath: p => excelPathList.push(p)
+  });
+  if (!excelPathList.length) {
+    return source;
+  }
+  return `
+    ${source}
+    if (module.hot) {
+      module.hot.accept(${JSON.stringify(excelPathList)}, ${hmr})
+    }
+  `;
 }
