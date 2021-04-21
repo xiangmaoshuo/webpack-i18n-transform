@@ -167,7 +167,6 @@ module.exports = class TransformI18nWebpackPlugin {
       ? compiler.webpack
       : require('webpack');
     const isDevEnv = isDev();
-    const generateZhPath = isDevEnv;
     const rawRules = compiler.options.module.rules;
     const { rules } = new RuleSet(rawRules);
     const { i18nPath, locale, async, ...remainOptions } = this.options;
@@ -180,7 +179,6 @@ module.exports = class TransformI18nWebpackPlugin {
     }
 
     const extraOptions = {
-      generateZhPath,
       i18nPath: isExistsPath(isAbsolutePath(i18nPath) ? i18nPath : path.resolve(compiler.context, i18nPath))
     };
 
@@ -275,7 +273,7 @@ module.exports = class TransformI18nWebpackPlugin {
         return Promise.all(promises);
       });
     });
-    if (generateZhPath) {
+    if (isDevEnv) {
       compiler.hooks.emit.tapPromise(PLUGIN_NAME, async compilation => {
         const { assets } = compilation;
         const { add, reduce, common } = i18nDiff(

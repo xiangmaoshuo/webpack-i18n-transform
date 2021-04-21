@@ -36,7 +36,7 @@ module.exports.pitch = function pitch() {
     ].join('!'));
   };
 
-  const i18nLoaderQuery = JSON.stringify({ generateZhPath: options.generateZhPath, i18nPath: options.i18nPath });
+  const i18nLoaderQuery = JSON.stringify({ i18nPath: options.i18nPath });
 
   // 修改request中的loader顺序，在template编译后调用for-js.js
   const request = genRequest([

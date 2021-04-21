@@ -14,7 +14,7 @@
 |i18nPath|String|-|i18n地址，该文件需要向外暴露一个$t接口，类似 export { $t }|
 |locale|String|excel第一列（中文）|如果你使用了插件自带的for-excel.js loader，该字段表示默认的构建语言|
 |async|Boolean|true|同locale，表示除了主资源包，是否异步加载剩余的资源包|
-|generateZhPath|Boolean|process.env.NODE_ENV === 'development'|是否生成i18n.html，该html中展示了当前项目中所有的中文（i18n格式）|
+
 |parseObjectProperty|Boolean|false|是否启用babel的ObjectProperty规则，默认对vue文件的template启用，该规则主要是让i18n不处理vue文件编译后生成的expression字段|
 |parseBinaryExpression|Boolean|false|是否启用babel的BinaryExpression规则，默认不启用，该规则将处理形如'a' + b,'a' + 'b'这种表达式为一个i18n语句|
 

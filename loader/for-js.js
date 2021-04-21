@@ -27,7 +27,6 @@ const excludeRegExp = /node_modules/;
 module.exports = function loader(source) {
   /**
    * {
-        generateZhPath,
         i18nPath,
         exclude = excludeRegExp,
         disableRegExp = disableI18nRegExp,
@@ -64,14 +63,11 @@ module.exports = function loader(source) {
   const { code } = generate(ast, {}, source);
   if (!map.size) { return getHmrCode(code, hmr, ast); }
 
-  let prifix = '';
-  if (loaderOptions.generateZhPath) {
-    const query = {
-      val: btoa(JSON.stringify([...map.entries()]))
-    };
-    const loaderPath = this.loaders[this.loaderIndex].path.replace('for-js', 'for-generate-zh');
-    prifix = `import ${loaderUtils.stringifyRequest(this, `!!${loaderPath}?${JSON.stringify(query)}!${this.resource}`)};`;
-  }
+  const query = {
+    val: btoa(JSON.stringify([...map.entries()]))
+  };
+  const loaderPath = this.loaders[this.loaderIndex].path.replace('for-js', 'for-generate-zh');
+  const prifix = `import ${loaderUtils.stringifyRequest(this, `!!${loaderPath}?${JSON.stringify(query)}!${this.resource}`)};`;
 
   const result = `
     ${prifix}
